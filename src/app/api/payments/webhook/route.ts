@@ -17,7 +17,14 @@ export async function POST(req: Request) {
   const payload = raw ? JSON.parse(raw) : {};
   const event = payload?.event;
   const data = payload?.data ?? {};
-  const status = data?.status ?? (event?.includes('success') ? 'success' : 'pending');
+  const rawStatus = String(data?.status ?? '').toLowerCase();
+  const eventStatus = String(event ?? '').toLowerCase();
+  const isSuccess =
+    rawStatus.includes('success') ||
+    rawStatus.includes('completed') ||
+    eventStatus.includes('success') ||
+    eventStatus.includes('completed');
+  const status = isSuccess ? 'completed' : rawStatus || 'pending';
   const transactionId = data?.transactionId ?? data?.transaction_id;
 
   if (!transactionId) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
@@ -26,7 +33,7 @@ export async function POST(req: Request) {
   if (!txn) return NextResponse.json({ ok: true });
 
   await supabase.from('transactions').update({ status }).eq('id', txn.id);
-  if (status === 'success') {
+  if (status === 'completed') {
     const { data: w } = await supabase.from('wallets').select('*').eq('user_id', txn.user_id).single();
     const newBal = Number(w?.balance ?? 0) + Number(txn.amount ?? 0);
     if (txn.type === 'topup') {
