@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f8fb;
+  --foreground: #0f172a;
+  --primary: #1e3a8a;
+  --secondary: #10b981;
+  --accent: #f59e0b;
+  --card: #ffffff;
+  --muted: #475569;
+  --border: #e2e8f0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-poppins);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+@layer base {
+  h1, h2, h3, h4 {
+    font-family: var(--font-poppins), system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full bg-[color:var(--primary)] px-5 py-2.5 text-white font-semibold shadow-sm transition hover:opacity-90;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full border border-[color:var(--primary)] px-5 py-2.5 text-[color:var(--primary)] font-semibold transition hover:bg-[color:var(--primary)] hover:text-white;
+  }
+  .badge-success {
+    @apply inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700;
+  }
+  .badge-pending {
+    @apply inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700;
+  }
+  .badge-failed {
+    @apply inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700;
+  }
+  .card {
+    @apply rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm;
+  }
+}
