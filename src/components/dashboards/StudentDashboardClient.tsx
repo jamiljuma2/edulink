@@ -11,6 +11,7 @@ type Assignment = {
   description: string | null;
   status: string;
   created_at: string;
+  due_date?: string | null;
 };
 
 export default function StudentDashboardClient() {
@@ -26,6 +27,7 @@ export default function StudentDashboardClient() {
   const [phone, setPhone] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [uploading, setUploading] = useState(false);
@@ -112,6 +114,10 @@ export default function StudentDashboardClient() {
       setMessage('Please add title and description.');
       return;
     }
+    if (!dueDate) {
+      setMessage('Please select a due date.');
+      return;
+    }
     if (!file) {
       setMessage('Please choose a file to upload.');
       return;
@@ -125,7 +131,7 @@ export default function StudentDashboardClient() {
       return;
     }
     try {
-      const { data } = await axios.post('/api/student/assignment', { title, description, storage_path: path });
+      const { data } = await axios.post('/api/student/assignment', { title, description, storage_path: path, due_date: dueDate });
       if (!data?.assignment) {
         setMessage('Failed to create assignment');
         setUploading(false);
@@ -134,6 +140,7 @@ export default function StudentDashboardClient() {
       setMessage('Assignment uploaded successfully.');
       setTitle('');
       setDescription('');
+      setDueDate('');
       setFile(null);
       setFileName('');
       await loadAssignments();
@@ -245,6 +252,12 @@ export default function StudentDashboardClient() {
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-200 lg:col-span-2" />
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+          />
           <div className="flex flex-col gap-2">
             <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100">
               Choose file
@@ -277,6 +290,9 @@ export default function StudentDashboardClient() {
               <div>
                 <p className="font-medium">{a.title}</p>
                 <p className="text-sm text-[color:var(--muted)]">{a.status}</p>
+                {a.due_date && (
+                  <p className="text-xs text-[color:var(--muted)]">Due: {new Date(a.due_date).toLocaleDateString()}</p>
+                )}
               </div>
               <span className="text-xs text-[color:var(--muted)]">{new Date(a.created_at).toLocaleDateString()}</span>
             </div>

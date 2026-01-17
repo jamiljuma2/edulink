@@ -3,7 +3,7 @@ import { createSupabaseServer } from '@/lib/supabaseServer';
 
 export async function POST(req: Request) {
   const supabase = await createSupabaseServer();
-  const { title, description, storage_path } = await req.json();
+  const { title, description, storage_path, due_date } = await req.json();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -15,10 +15,12 @@ export async function POST(req: Request) {
   if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'student') return NextResponse.json({ error: 'Student role required' }, { status: 403 });
+  if (!title || !storage_path) return NextResponse.json({ error: 'Missing assignment details' }, { status: 400 });
+  if (!due_date) return NextResponse.json({ error: 'Due date is required' }, { status: 400 });
 
   const { data: assignment, error } = await supabase
     .from('assignments')
-    .insert({ student_id: user.id, title, description, status: 'open', storage_path })
+    .insert({ student_id: user.id, title, description, status: 'open', storage_path, due_date })
     .select('*')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

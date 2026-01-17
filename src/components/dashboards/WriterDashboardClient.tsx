@@ -10,6 +10,7 @@ type Assignment = {
   id: string;
   title: string;
   description: string | null;
+  due_date?: string | null;
 };
 
 type Task = {
@@ -300,6 +301,9 @@ export default function WriterDashboardClient() {
               <div>
                 <p className="font-medium">{a.title}</p>
                 <p className="text-sm text-[color:var(--muted)]">{a.description}</p>
+                {a.due_date && (
+                  <p className="text-xs text-[color:var(--muted)]">Due: {new Date(a.due_date).toLocaleDateString()}</p>
+                )}
               </div>
               <button onClick={() => acceptAssignment(a.id)} className="btn-primary">Accept</button>
             </div>
@@ -318,6 +322,9 @@ export default function WriterDashboardClient() {
                 <p className="font-medium">{t.assignments?.title ?? 'Assignment'}</p>
                 <span className="badge-pending">{t.status}</span>
               </div>
+              {t.assignments?.due_date && (
+                <p className="mt-1 text-xs text-[color:var(--muted)]">Due: {new Date(t.assignments.due_date).toLocaleDateString()}</p>
+              )}
               {t.status !== 'approved' && (
                 <div className="mt-3 grid gap-2">
                   <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100">
