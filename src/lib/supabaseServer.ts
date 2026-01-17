@@ -35,14 +35,15 @@ export async function createSupabaseServer() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return getCookie(name);
+        getAll() {
+          const store = cookieStore as CookieStoreLike;
+          if (typeof store.getAll === 'function') return store.getAll();
+          return [];
         },
-        set(name: string, value: string, options: CookieOptions) {
-          setCookie(name, value, options);
-        },
-        remove(name: string, options: CookieOptions) {
-          setCookie(name, '', options);
+        setAll(cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }>) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            setCookie(name, value, options);
+          });
         },
       },
     }
