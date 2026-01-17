@@ -152,13 +152,20 @@ export default function StudentDashboardClient() {
     <DashboardShell
       roleLabel="Student"
       title="Student Dashboard"
-      subtitle="Manage assignments and payments"
+      subtitle="Manage assignments, payments, and submissions"
       navItems={navItems}
       headerRight={
         <div className="flex items-center gap-3">
-          <div className="card flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-[color:var(--secondary)]" />
-            <span className="text-sm font-semibold">${wallet.toFixed(2)}</span>
+          <div className="rounded-2xl border border-emerald-200/40 bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                <Wallet className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-xs uppercase tracking-widest text-emerald-700/70">Wallet</p>
+                <p className="text-sm font-semibold text-emerald-900">KES {wallet.toFixed(2)}</p>
+              </div>
+            </div>
           </div>
           <button className="btn-secondary" aria-label="Notifications">
             <Bell className="h-4 w-4" />
@@ -166,39 +173,95 @@ export default function StudentDashboardClient() {
         </div>
       }
     >
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="card">
-          <h2 className="text-xl font-semibold">Wallet Top-up</h2>
-          <p className="mt-2 text-sm text-[color:var(--muted)]">Fund your wallet securely via M-Pesa or card.</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone e.g. +254712345678" className="min-w-[220px] rounded border p-2" />
-            <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-28 rounded border p-2" />
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="card lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Wallet Top-up</h2>
+              <p className="mt-1 text-sm text-[color:var(--muted)]">Fund your wallet securely via M-Pesa or card.</p>
+            </div>
+            <div className="rounded-full border border-emerald-200/40 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+              Instant STK confirmation
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-600">Phone number</span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+254712345678"
+                className="mt-2 w-full rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-600">Amount (KES)</span>
+              <input
+                type="number"
+                min={1}
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                className="mt-2 w-full rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              />
+            </label>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
             <button onClick={topupKenya} className="btn-primary">M-Pesa (Kenya)</button>
             <button onClick={topupGlobal} className="btn-secondary">Card (Global)</button>
           </div>
         </div>
 
         <div className="card">
-          <h2 className="text-xl font-semibold">Upload Assignment</h2>
-          <div className="mt-3 grid grid-cols-1 gap-2">
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="rounded border p-2" />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" className="rounded border p-2" />
-            <div className="flex flex-col gap-2">
-              <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100">
-                Choose file
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx,.csv,.jpg,.jpeg,.png,.webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const selected = e.target.files?.[0] ?? null;
-                    setFile(selected);
-                    setFileName(selected?.name ?? '');
-                  }}
-                />
-              </label>
-              {fileName && <span className="text-xs text-[color:var(--muted)]">Selected: {fileName}</span>}
+          <h2 className="text-xl font-semibold">Quick Stats</h2>
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between rounded-xl border border-[color:var(--border)] bg-white/70 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <FileText className="h-4 w-4 text-emerald-500" />
+                Assignments
+              </div>
+              <span className="text-sm font-semibold text-slate-900">{assignments.length}</span>
             </div>
+            <div className="flex items-center justify-between rounded-xl border border-[color:var(--border)] bg-white/70 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <UploadCloud className="h-4 w-4 text-sky-500" />
+                Uploads
+              </div>
+              <span className="text-sm font-semibold text-slate-900">{assignments.length}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-[color:var(--border)] bg-white/70 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <Wallet className="h-4 w-4 text-emerald-500" />
+                Balance
+              </div>
+              <span className="text-sm font-semibold text-slate-900">KES {wallet.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="text-xl font-semibold">Upload Assignment</h2>
+        <p className="mt-2 text-sm text-[color:var(--muted)]">Add clear details so writers understand your requirements.</p>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-200 lg:col-span-2" />
+          <div className="flex flex-col gap-2">
+            <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100">
+              Choose file
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx,.csv,.jpg,.jpeg,.png,.webp"
+                className="hidden"
+                onChange={(e) => {
+                  const selected = e.target.files?.[0] ?? null;
+                  setFile(selected);
+                  setFileName(selected?.name ?? '');
+                }}
+              />
+            </label>
+            {fileName && <span className="text-xs text-[color:var(--muted)]">Selected: {fileName}</span>}
+          </div>
+          <div className="lg:col-span-3">
             <button onClick={uploadAssignment} disabled={uploading} className="btn-primary disabled:opacity-50">
               {uploading ? 'Uploading...' : 'Upload'}
             </button>
@@ -210,7 +273,7 @@ export default function StudentDashboardClient() {
         <h2 className="text-xl font-semibold">My Assignments</h2>
         <div className="mt-3 space-y-2">
           {assignments.map((a) => (
-            <div key={a.id} className="flex items-center justify-between rounded-xl border border-[color:var(--border)] p-3">
+            <div key={a.id} className="flex items-center justify-between rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
               <div>
                 <p className="font-medium">{a.title}</p>
                 <p className="text-sm text-[color:var(--muted)]">{a.status}</p>
