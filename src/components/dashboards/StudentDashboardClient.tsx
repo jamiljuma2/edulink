@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseClient } from '@/lib/supabaseClient';
 import axios from 'axios';
 import { Wallet, UploadCloud, FileText, Bell } from 'lucide-react';
@@ -31,6 +31,25 @@ export default function StudentDashboardClient() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const pollingRef = useRef<number | null>(null);
+  const pollingTimeoutRef = useRef<number | null>(null);
+
+  function stopWalletPolling() {
+    if (pollingRef.current) window.clearInterval(pollingRef.current);
+    if (pollingTimeoutRef.current) window.clearTimeout(pollingTimeoutRef.current);
+    pollingRef.current = null;
+    pollingTimeoutRef.current = null;
+  }
+
+  function startWalletPolling() {
+    stopWalletPolling();
+    pollingRef.current = window.setInterval(() => {
+      loadWallet();
+    }, 6000);
+    pollingTimeoutRef.current = window.setTimeout(() => {
+      stopWalletPolling();
+    }, 120000);
+  }
 
   async function loadWallet() {
     const { data } = await axios.get('/api/student/wallet');
@@ -51,6 +70,7 @@ export default function StudentDashboardClient() {
         await Promise.all([loadWallet(), loadAssignments()]);
       }
     })();
+    return () => stopWalletPolling();
   }, [supabase]);
 
   async function topupKenya() {
@@ -66,6 +86,7 @@ export default function StudentDashboardClient() {
     try {
       await axios.post('/api/payments/mpesa/topup', { amount, phone });
       setMessage('Check your phone to approve payment.');
+      startWalletPolling();
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         setMessage(err.response?.data?.error ?? 'Top-up failed.');
