@@ -41,9 +41,12 @@ export default function WriterDashboardClient() {
   const [payAmount, setPayAmount] = useState<number | null>(null);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState<number>(0);
   const [withdrawPhone, setWithdrawPhone] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
 
   async function loadSummary() {
     const { data } = await axios.get('/api/writer/tasks/summary');
@@ -94,6 +97,8 @@ export default function WriterDashboardClient() {
       setMessage('Please enter your phone number to continue.');
       return;
     }
+    if (paying) return;
+    setPaying(true);
     try {
       await axios.post('/api/subscriptions/pay', { subscriptionId, phone: payPhone });
       setMessage('Payment initiated. Complete the STK push on your phone.');
@@ -104,11 +109,14 @@ export default function WriterDashboardClient() {
       } else {
         setMessage('Payment initiation failed.');
       }
+    } finally {
+      setPaying(false);
     }
   }
 
   async function acceptAssignment(id: string) {
     setMessage(null);
+    setAcceptingId(id);
     try {
       await axios.post('/api/writer/tasks/accept', { assignmentId: id });
       await Promise.all([loadOpenAssignments(), loadMyTasks(), loadSummary()]);
@@ -120,6 +128,8 @@ export default function WriterDashboardClient() {
         const message = err instanceof Error ? err.message : 'Failed to accept assignment';
         setMessage(message);
       }
+    } finally {
+      setAcceptingId(null);
     }
   }
 
@@ -243,7 +253,9 @@ export default function WriterDashboardClient() {
                 placeholder="Phone e.g. +254712345678"
                 className="w-full rounded-xl border border-indigo-100 bg-indigo-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               />
-              <button onClick={submitPayment} className="btn-primary w-full">Pay Now</button>
+              <button onClick={submitPayment} disabled={paying} className="btn-primary w-full disabled:opacity-60">
+                {paying ? 'Processing...' : 'Pay Now'}
+              </button>
             </div>
           </div>
         </div>
@@ -272,6 +284,8 @@ export default function WriterDashboardClient() {
               />
               <button
                 onClick={async () => {
+                  if (withdrawing) return;
+                  setWithdrawing(true);
                   try {
                     await axios.post('/api/writer/withdrawals', { amount: withdrawAmount, phone: withdrawPhone });
                     setMessage('Withdrawal request submitted.');
@@ -282,11 +296,14 @@ export default function WriterDashboardClient() {
                     } else {
                       setMessage('Withdrawal failed.');
                     }
+                  } finally {
+                    setWithdrawing(false);
                   }
                 }}
-                className="btn-primary w-full"
+                className="btn-primary w-full disabled:opacity-60"
+                disabled={withdrawing}
               >
-                Submit Withdrawal
+                {withdrawing ? 'Submitting...' : 'Submit Withdrawal'}
               </button>
             </div>
           </div>
@@ -305,7 +322,9 @@ export default function WriterDashboardClient() {
                   <p className="text-xs text-[color:var(--muted)]">Due: {new Date(a.due_date).toLocaleDateString()}</p>
                 )}
               </div>
-              <button onClick={() => acceptAssignment(a.id)} className="btn-primary">Accept</button>
+              <button onClick={() => acceptAssignment(a.id)} disabled={acceptingId === a.id} className="btn-primary disabled:opacity-60">
+                {acceptingId === a.id ? 'Accepting...' : 'Accept'}
+              </button>
             </div>
           ))}
           {openAssignments.length === 0 && <p className="text-sm text-[color:var(--muted)]">No open assignments right now.</p>}

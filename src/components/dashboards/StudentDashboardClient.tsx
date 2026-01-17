@@ -31,6 +31,7 @@ export default function StudentDashboardClient() {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [uploading, setUploading] = useState(false);
+  const [toppingUp, setToppingUp] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const pollingRef = useRef<number | null>(null);
@@ -85,6 +86,7 @@ export default function StudentDashboardClient() {
       return;
     }
     setMessage('Initiating M-Pesa STK push...');
+    setToppingUp(true);
     try {
       await axios.post('/api/payments/mpesa/topup', { amount, phone });
       setMessage('Check your phone to approve payment.');
@@ -95,6 +97,8 @@ export default function StudentDashboardClient() {
       } else {
         setMessage('Top-up failed.');
       }
+    } finally {
+      setToppingUp(false);
     }
   }
 
@@ -122,6 +126,7 @@ export default function StudentDashboardClient() {
       setMessage('Please choose a file to upload.');
       return;
     }
+    if (uploading) return;
     setUploading(true);
     const path = `${userId}/${crypto.randomUUID()}-${file.name}`;
     const { error: upErr } = await supabase.storage.from('assignments').upload(path, file);
@@ -213,7 +218,9 @@ export default function StudentDashboardClient() {
             </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
-            <button onClick={topupKenya} className="btn-primary">M-Pesa (Kenya)</button>
+            <button onClick={topupKenya} disabled={toppingUp} className="btn-primary disabled:opacity-60">
+              {toppingUp ? 'Processing...' : 'M-Pesa (Kenya)'}
+            </button>
             <button onClick={topupGlobal} className="btn-secondary">Card (Global)</button>
           </div>
         </div>

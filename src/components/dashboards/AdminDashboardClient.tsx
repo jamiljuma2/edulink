@@ -60,6 +60,7 @@ export default function AdminDashboardClient() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const loadPending = useCallback(async () => {
     const { data } = await axios.get('/api/admin/approvals');
@@ -85,21 +86,27 @@ export default function AdminDashboardClient() {
   useEffect(() => { loadPending(); loadSubmissions(); loadPayments(); loadWithdrawals(); }, [loadPending, loadSubmissions, loadPayments, loadWithdrawals]);
 
   async function approve(id: string) {
+    setProcessingId(id);
     await axios.post('/api/admin/approvals/approve', { userId: id });
     setMessage('User approved');
     loadPending();
+    setProcessingId(null);
   }
 
   async function decideSubmission(submissionId: string, decision: 'approve' | 'reject') {
+    setProcessingId(submissionId);
     await axios.post('/api/admin/submissions/decision', { submissionId, decision });
     setMessage(`Submission ${decision}d.`);
     loadSubmissions();
+    setProcessingId(null);
   }
 
   async function approveWithdrawal(transactionId: string) {
+    setProcessingId(transactionId);
     await axios.post('/api/admin/withdrawals/approve', { transactionId });
     setMessage('Withdrawal approved.');
     loadWithdrawals();
+    setProcessingId(null);
   }
 
   return (
@@ -140,7 +147,9 @@ export default function AdminDashboardClient() {
               </div>
               <div className="flex gap-2">
                 <button className="btn-secondary" onClick={() => setModal({ kind: 'approval', data: p })}>View</button>
-                <button className="btn-primary" onClick={() => approve(p.id)}>Approve</button>
+                <button className="btn-primary disabled:opacity-60" onClick={() => approve(p.id)} disabled={processingId === p.id}>
+                  {processingId === p.id ? 'Approving...' : 'Approve'}
+                </button>
               </div>
             </div>
           ))}
@@ -160,8 +169,12 @@ export default function AdminDashboardClient() {
                 </div>
                 <div className="flex gap-2">
                   <button className="btn-secondary" onClick={() => setModal({ kind: 'submission', data: s })}>View</button>
-                  <button className="btn-primary" onClick={() => decideSubmission(s.id, 'approve')}>Approve</button>
-                  <button className="btn-secondary" onClick={() => decideSubmission(s.id, 'reject')}>Reject</button>
+                  <button className="btn-primary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'approve')} disabled={processingId === s.id}>
+                    {processingId === s.id ? 'Processing...' : 'Approve'}
+                  </button>
+                  <button className="btn-secondary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'reject')} disabled={processingId === s.id}>
+                    {processingId === s.id ? 'Processing...' : 'Reject'}
+                  </button>
                 </div>
               </div>
               {s.signedUrl && (
@@ -203,7 +216,9 @@ export default function AdminDashboardClient() {
               <div className="flex gap-2">
                 <button className="btn-secondary" onClick={() => setModal({ kind: 'payment', data: w })}>View</button>
                 {w.status !== 'success' && (
-                  <button className="btn-primary" onClick={() => approveWithdrawal(w.id)}>Approve</button>
+                  <button className="btn-primary disabled:opacity-60" onClick={() => approveWithdrawal(w.id)} disabled={processingId === w.id}>
+                    {processingId === w.id ? 'Approving...' : 'Approve'}
+                  </button>
                 )}
               </div>
             </div>
