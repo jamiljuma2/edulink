@@ -44,7 +44,7 @@ export default function RegisterClient() {
           .from('profiles')
           .insert({ id: user.id, email, display_name: name, role, approval_status: 'pending' });
         if (profErr) throw profErr;
-        setOk('Registration submitted. Await admin approval.');
+        setOk('Account created. Redirecting to login...');
       } else {
         setOk('Check your email to confirm your account. Then log in to complete setup.');
       }

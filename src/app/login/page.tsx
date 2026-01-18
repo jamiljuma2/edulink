@@ -47,7 +47,8 @@ export default function LoginPage() {
       }
       if (!prof) throw new Error('Profile not found');
       if (prof.approval_status !== 'approved') {
-        throw new Error('Account awaiting admin approval.');
+        router.replace('/pending');
+        return;
       }
       if (prof.role === 'student') router.replace('/student/dashboard');
       else if (prof.role === 'writer') router.replace('/writer/dashboard');
