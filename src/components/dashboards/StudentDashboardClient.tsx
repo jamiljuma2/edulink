@@ -38,6 +38,7 @@ export default function StudentDashboardClient() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const pollingRef = useRef<number | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
+  const lastWalletRef = useRef<number>(0);
 
   function stopWalletPolling() {
     if (pollingRef.current) window.clearInterval(pollingRef.current);
@@ -58,7 +59,13 @@ export default function StudentDashboardClient() {
 
   async function loadWallet() {
     const { data } = await axios.get('/api/student/wallet');
-    setWallet(Number(data?.wallet?.balance ?? 0));
+    const nextBalance = Number(data?.wallet?.balance ?? 0);
+    setWallet(nextBalance);
+    if (stkOverlayOpen && nextBalance > lastWalletRef.current) {
+      setStkOverlayOpen(false);
+      setMessage('Payment received. Wallet updated.');
+    }
+    lastWalletRef.current = nextBalance;
   }
 
   async function loadAssignments() {
@@ -90,8 +97,10 @@ export default function StudentDashboardClient() {
     setMessage(null);
     setStkOverlayOpen(true);
     setToppingUp(true);
+    let initiated = false;
     try {
       await axios.post('/api/payments/mpesa/topup', { amount, phone });
+      initiated = true;
       setMessage('STK push sent. Check your phone to approve payment.');
       startWalletPolling();
     } catch (err: unknown) {
@@ -102,7 +111,7 @@ export default function StudentDashboardClient() {
       }
     } finally {
       setToppingUp(false);
-      setStkOverlayOpen(false);
+      if (!initiated) setStkOverlayOpen(false);
     }
   }
 
