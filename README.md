@@ -5,12 +5,12 @@ A web platform connecting students and writers worldwide for secure, high-qualit
 ## Tech Stack
 - Next.js (App Router) + TypeScript + Tailwind CSS
 - Supabase (Auth, Database, Storage)
-- Lipana STK Push (Kenya) + Global checkout stub
+- Lipana STK Push (Kenya) + PayPal (Global)
 
 ## Features
 - Roles: Student, Writer, Admin with server-side guards
 - Admin approvals for new users
-- Student wallet top-up via Lipana (Kenya) and global checkout stub
+- Student wallet top-up via Lipana (Kenya) and PayPal (Global)
 - Assignment uploads (Supabase Storage)
 - Writer subscriptions with task limits
 - Writer task acceptance and submissions flow
@@ -30,6 +30,9 @@ SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 LIPANA_SECRET_KEY=...
 LIPANA_WEBHOOK_SECRET=...
+PAYPAL_ENV=sandbox
+PAYPAL_CLIENT_ID=...
+PAYPAL_CLIENT_SECRET=...
 ```
 3. Apply SQL schema in `supabase/schema.sql` via Supabase SQL editor.
 4. Create Storage buckets named `assignments` and `submissions` and apply the storage policies in the schema.
@@ -51,7 +54,7 @@ Visit `http://localhost:3000`.
 
 ## Payments
 - Lipana STK Push: `src/app/api/payments/mpesa/topup/route.ts`
-- Global checkout stub: `src/app/api/payments/mpesa-global/topup/route.ts`
+- PayPal checkout (global): `src/app/api/payments/mpesa-global/topup/route.ts`
 - Webhook: `src/app/api/payments/webhook/route.ts` (activates topups and subscriptions)
 
 ## Subscriptions

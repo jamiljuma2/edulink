@@ -32,6 +32,7 @@ export default function StudentDashboardClient() {
   const [fileName, setFileName] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [toppingUp, setToppingUp] = useState(false);
+  const [payingGlobal, setPayingGlobal] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const pollingRef = useRef<number | null>(null);
@@ -103,9 +104,21 @@ export default function StudentDashboardClient() {
   }
 
   async function topupGlobal() {
-    setMessage('Redirecting to M-Pesa Global checkout...');
-    const { data } = await axios.post('/api/payments/mpesa-global/topup', { amount });
-    if (data?.checkoutUrl) window.location.href = data.checkoutUrl;
+    if (payingGlobal) return;
+    setPayingGlobal(true);
+    setMessage('Redirecting to PayPal checkout...');
+    try {
+      const { data } = await axios.post('/api/payments/mpesa-global/topup', { amount });
+      if (data?.checkoutUrl) window.location.href = data.checkoutUrl;
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setMessage(err.response?.data?.error ?? 'PayPal checkout failed.');
+      } else {
+        setMessage('PayPal checkout failed.');
+      }
+    } finally {
+      setPayingGlobal(false);
+    }
   }
 
   async function uploadAssignment() {
@@ -221,7 +234,9 @@ export default function StudentDashboardClient() {
             <button onClick={topupKenya} disabled={toppingUp} className="btn-primary disabled:opacity-60">
               {toppingUp ? 'Processing...' : 'M-Pesa (Kenya)'}
             </button>
-            <button onClick={topupGlobal} className="btn-secondary">Card (Global)</button>
+            <button onClick={topupGlobal} disabled={payingGlobal} className="btn-secondary disabled:opacity-60">
+              {payingGlobal ? 'Opening PayPal...' : 'PayPal (Global)'}
+            </button>
           </div>
         </div>
 
