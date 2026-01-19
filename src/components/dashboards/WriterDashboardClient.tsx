@@ -49,6 +49,7 @@ export default function WriterDashboardClient() {
   const [withdrawPhone, setWithdrawPhone] = useState('');
   const [withdrawing, setWithdrawing] = useState(false);
   const stkTimeoutRef = useMemo(() => ({ id: null as number | null }), []);
+  const stkOverlayTimeoutRef = useMemo(() => ({ id: null as number | null }), []);
 
   async function loadSummary() {
     const { data } = await axios.get('/api/writer/tasks/summary');
@@ -103,10 +104,15 @@ export default function WriterDashboardClient() {
     setPaying(true);
     setStkOverlayOpen(true);
     if (stkTimeoutRef.id) window.clearTimeout(stkTimeoutRef.id);
+    if (stkOverlayTimeoutRef.id) window.clearTimeout(stkOverlayTimeoutRef.id);
     try {
       await axios.post('/api/subscriptions/pay', { subscriptionId, phone: payPhone });
       setMessage('Payment initiated. Complete the STK push on your phone.');
       setPayOpen(false);
+      stkOverlayTimeoutRef.id = window.setTimeout(() => {
+        setStkOverlayOpen(false);
+        stkOverlayTimeoutRef.id = null;
+      }, 3000);
       stkTimeoutRef.id = window.setTimeout(() => {
         setStkOverlayOpen(false);
         setMessage('Payment timed out or was cancelled. Please try again.');

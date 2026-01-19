@@ -42,6 +42,7 @@ export default function StudentDashboardClient() {
   const lastWalletRef = useRef<number>(0);
   const messageTimeoutRef = useRef<number | null>(null);
   const stkStatusRef = useRef<number | null>(null);
+  const stkOverlayTimeoutRef = useRef<number | null>(null);
 
   function stopWalletPolling() {
     if (pollingRef.current) window.clearInterval(pollingRef.current);
@@ -108,6 +109,18 @@ export default function StudentDashboardClient() {
       if (messageTimeoutRef.current) window.clearTimeout(messageTimeoutRef.current);
     };
   }, [message]);
+
+  useEffect(() => {
+    if (!stkOverlayOpen) return;
+    if (stkOverlayTimeoutRef.current) window.clearTimeout(stkOverlayTimeoutRef.current);
+    stkOverlayTimeoutRef.current = window.setTimeout(() => {
+      setStkOverlayOpen(false);
+      stkOverlayTimeoutRef.current = null;
+    }, 3000);
+    return () => {
+      if (stkOverlayTimeoutRef.current) window.clearTimeout(stkOverlayTimeoutRef.current);
+    };
+  }, [stkOverlayOpen]);
 
   async function topupKenya() {
     if (!phone) {
