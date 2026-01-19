@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabaseServer';
 
+export const runtime = 'edge';
+
 export async function POST(req: Request) {
   const supabase = await createSupabaseServer();
   const { amount, phone } = await req.json();
