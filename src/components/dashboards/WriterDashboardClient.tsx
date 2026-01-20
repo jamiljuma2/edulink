@@ -19,6 +19,12 @@ type Task = {
   assignments?: Assignment | null;
 };
 
+type EarningTask = {
+  id: string;
+  created_at: string;
+  assignments?: { title: string | null } | null;
+};
+
 export default function WriterDashboardClient() {
     const navItems: NavItem[] = [
       { label: 'Overview', icon: Briefcase },
@@ -48,6 +54,10 @@ export default function WriterDashboardClient() {
   const [withdrawAmount, setWithdrawAmount] = useState<number>(0);
   const [withdrawPhone, setWithdrawPhone] = useState('');
   const [withdrawing, setWithdrawing] = useState(false);
+  const [availableEarnings, setAvailableEarnings] = useState<number>(0);
+  const [approvedTasks, setApprovedTasks] = useState<number>(0);
+  const [taskRate, setTaskRate] = useState<number>(0);
+  const [earningTasks, setEarningTasks] = useState<EarningTask[]>([]);
   const stkTimeoutRef = useMemo(() => ({ id: null as number | null }), []);
   const stkOverlayTimeoutRef = useMemo(() => ({ id: null as number | null }), []);
 
@@ -76,11 +86,19 @@ export default function WriterDashboardClient() {
     setMyTasks(data?.tasks ?? []);
   }
 
+  async function loadEarnings() {
+    const { data } = await axios.get('/api/writer/earnings');
+    setAvailableEarnings(Number(data?.availableEarnings ?? 0));
+    setApprovedTasks(Number(data?.approvedTasks ?? 0));
+    setTaskRate(Number(data?.taskRate ?? 0));
+    setEarningTasks(data?.tasks ?? []);
+  }
+
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
       setUserId(data.user?.id ?? null);
-      await Promise.all([loadSummary(), loadOpenAssignments(), loadMyTasks()]);
+      await Promise.all([loadSummary(), loadOpenAssignments(), loadMyTasks(), loadEarnings()]);
     })();
   }, [supabase]);
 
@@ -204,13 +222,60 @@ export default function WriterDashboardClient() {
               </div>
             </div>
           </div>
-          <button className="btn-primary" onClick={() => setWithdrawOpen(true)}>Withdraw</button>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setWithdrawAmount(Math.max(availableEarnings, 0));
+              setWithdrawOpen(true);
+            }}
+          >
+            Withdraw
+          </button>
           <button className="btn-secondary" aria-label="Notifications">
             <Bell className="h-4 w-4" />
           </button>
         </div>
       }
     >
+      <div className="card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Earnings available for withdrawal</h2>
+            <p className="mt-1 text-sm text-[color:var(--muted)]">Based on approved tasks ready for payout.</p>
+          </div>
+          <div className="rounded-full border border-emerald-200/50 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            Approved tasks: {approvedTasks}
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+            <p className="text-xs uppercase tracking-widest text-emerald-600/70">Available earnings</p>
+            <p className="mt-2 text-lg font-semibold text-slate-900">KES {availableEarnings.toFixed(2)}</p>
+          </div>
+          <div className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+            <p className="text-xs uppercase tracking-widest text-emerald-600/70">Rate per task</p>
+            <p className="mt-2 text-lg font-semibold text-slate-900">KES {taskRate.toFixed(2)}</p>
+          </div>
+          <div className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+            <p className="text-xs uppercase tracking-widest text-emerald-600/70">Tasks ready</p>
+            <p className="mt-2 text-lg font-semibold text-slate-900">{approvedTasks}</p>
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          {earningTasks.map((task) => (
+            <div key={task.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+              <div>
+                <p className="font-medium">{task.assignments?.title ?? 'Approved task'}</p>
+                <p className="text-xs text-[color:var(--muted)]">Approved on {new Date(task.created_at).toLocaleDateString()}</p>
+              </div>
+              <span className="text-sm font-semibold text-emerald-700">KES {taskRate.toFixed(2)}</span>
+            </div>
+          ))}
+          {earningTasks.length === 0 && (
+            <p className="text-sm text-[color:var(--muted)]">No approved tasks ready for withdrawal yet.</p>
+          )}
+        </div>
+      </div>
       <div className="card">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -285,6 +350,7 @@ export default function WriterDashboardClient() {
               <button className="btn-secondary" onClick={() => setWithdrawOpen(false)}>Close</button>
             </div>
             <div className="mt-4 space-y-3">
+              <div className="text-sm text-[color:var(--muted)]">Available: KES {availableEarnings.toFixed(2)}</div>
               <input
                 type="number"
                 value={withdrawAmount}
@@ -301,6 +367,10 @@ export default function WriterDashboardClient() {
               <button
                 onClick={async () => {
                   if (withdrawing) return;
+                  if (availableEarnings <= 0 || withdrawAmount <= 0) {
+                    setMessage('No approved earnings available for withdrawal.');
+                    return;
+                  }
                   setWithdrawing(true);
                   try {
                     await axios.post('/api/writer/withdrawals', { amount: withdrawAmount, phone: withdrawPhone });
