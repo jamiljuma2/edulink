@@ -106,6 +106,9 @@ export default function Home() {
               <Link href="/privacy" className="hover:text-[color:var(--primary)]">Privacy</Link>
             </div>
           </div>
+          <div className="mt-6 text-xs uppercase tracking-widest text-[color:var(--muted)]/80">
+            © 2026 EduLink Writers. All rights reserved.
+          </div>
         </div>
       </footer>
     </div>
