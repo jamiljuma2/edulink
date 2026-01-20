@@ -72,7 +72,7 @@ export default function RegisterClient() {
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as UserRole)}
-                className="mt-1 w-full rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="mt-1 w-full rounded-xl border border-emerald-200 bg-white p-3 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 form-input-clear"
                 disabled={loading}
               >
                 <option value="student">Student</option>
@@ -84,10 +84,11 @@ export default function RegisterClient() {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="mt-1 w-full rounded-xl border border-emerald-200 bg-white p-3 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 form-input-clear"
                 autoComplete="name"
                 disabled={loading}
                 required
+                placeholder="Jane Doe"
               />
             </label>
             <label className="block">
@@ -96,10 +97,11 @@ export default function RegisterClient() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="mt-1 w-full rounded-xl border border-emerald-200 bg-white p-3 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 form-input-clear"
                 autoComplete="email"
                 disabled={loading}
                 required
+                placeholder="you@example.com"
               />
             </label>
             <label className="block">
@@ -108,10 +110,11 @@ export default function RegisterClient() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                className="mt-1 w-full rounded-xl border border-emerald-200 bg-white p-3 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 form-input-clear"
                 autoComplete="new-password"
                 disabled={loading}
                 required
+                placeholder="Create a strong password"
               />
             </label>
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -125,6 +128,18 @@ export default function RegisterClient() {
           </form>
         </div>
       </div>
+      <style jsx>{`
+        .form-input-clear {
+          border-width: 2px !important;
+          background-color: #ffffff !important;
+        }
+        .form-input-clear::placeholder {
+          color: #64748b !important;
+        }
+        .form-input-clear:focus {
+          border-color: #34d399 !important;
+        }
+      `}</style>
     </div>
   );
 }
