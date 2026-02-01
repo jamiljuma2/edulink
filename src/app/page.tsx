@@ -54,18 +54,48 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="grid gap-6 pb-12 md:grid-cols-3">
+        <section className="pb-12">
           <div className="card">
-            <h3 className="text-lg font-semibold">Secure Payments</h3>
-            <p className="mt-2 text-sm text-[color:var(--muted)]">M-Pesa and global card payments with wallet-based disbursements.</p>
-          </div>
-          <div className="card">
-            <h3 className="text-lg font-semibold">Verified Writers</h3>
-            <p className="mt-2 text-sm text-[color:var(--muted)]">Subscription tiers and performance tracking ensure consistent quality.</p>
-          </div>
-          <div className="card">
-            <h3 className="text-lg font-semibold">Fast Delivery</h3>
-            <p className="mt-2 text-sm text-[color:var(--muted)]">Task limits and review flow keep assignments on schedule.</p>
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold text-[#1d4ed8]">Why EduLink?</h2>
+            </div>
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <div className="flex items-center gap-4 rounded-2xl border border-[color:var(--border)] bg-white/80 p-4 shadow-sm">
+                <span className="text-3xl">🎓</span>
+                <div>
+                  <p className="font-semibold">Academic Integrity</p>
+                  <p className="text-sm text-[color:var(--muted)]">Original, policy-aligned work with strict quality checks.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 rounded-2xl border border-[color:var(--border)] bg-white/80 p-4 shadow-sm">
+                <span className="text-3xl">💳</span>
+                <div>
+                  <p className="font-semibold">Secure Payments</p>
+                  <p className="text-sm text-[color:var(--muted)]">Protected transactions with wallet-based flow.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 rounded-2xl border border-[color:var(--border)] bg-white/80 p-4 shadow-sm">
+                <span className="text-3xl">🛡️</span>
+                <div>
+                  <p className="font-semibold">Verified Writers</p>
+                  <p className="text-sm text-[color:var(--muted)]">Subscription tiers and approvals ensure reliability.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 rounded-2xl border border-[color:var(--border)] bg-white/80 p-4 shadow-sm">
+                <span className="text-3xl">🧑‍💼</span>
+                <div>
+                  <p className="font-semibold">Admin Oversight</p>
+                  <p className="text-sm text-[color:var(--muted)]">Transparent reviews, approvals, and dispute handling.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 rounded-2xl border border-[color:var(--border)] bg-white/80 p-4 shadow-sm">
+                <span className="text-3xl">🔒</span>
+                <div>
+                  <p className="font-semibold">Confidential & Reliable</p>
+                  <p className="text-sm text-[color:var(--muted)]">Your data and files stay private and secure.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
