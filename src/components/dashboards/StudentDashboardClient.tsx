@@ -20,6 +20,22 @@ export default function StudentDashboardClient() {
       { label: 'Assignments', icon: UploadCloud },
       { label: 'Wallet', icon: Wallet },
     ];
+  const universitySubjects = [
+    'Advanced Research Methods',
+    'Applied Statistics',
+    'Computer Networks',
+    'Database Systems',
+    'Machine Learning',
+    'Software Engineering',
+  ];
+  const collegeSubjects = [
+    'Academic Writing',
+    'Business Communication',
+    'Introduction to IT',
+    'Project Management',
+    'Study Skills',
+    'Technical Report Writing',
+  ];
   const supabase = useMemo(() => supabaseClient(), []);
   const [userId, setUserId] = useState<string | null>(null);
   const [wallet, setWallet] = useState<number>(0);
@@ -394,11 +410,16 @@ export default function StudentDashboardClient() {
                 className="mt-2 w-full rounded-2xl border border-emerald-100 bg-white p-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">Select subject</option>
-                <option value="Business">Business</option>
-                <option value="Computer Science">Computer Science</option>
-                <option value="Literature">Literature</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Other">Other</option>
+                <optgroup label="University">
+                  {universitySubjects.map((item) => (
+                    <option key={`uni-${item}`} value={item}>{item}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="College">
+                  {collegeSubjects.map((item) => (
+                    <option key={`college-${item}`} value={item}>{item}</option>
+                  ))}
+                </optgroup>
               </select>
             </label>
             <label className="block">
@@ -500,6 +521,7 @@ export default function StudentDashboardClient() {
           </div>
         </div>
       </div>
+
 
       <div className="card">
         <h2 className="text-xl font-semibold">My Assignments</h2>
