@@ -1,6 +1,5 @@
 import Link from "next/link";
 import EduLinkLogo from "@/components/branding/EduLinkLogo";
-import TestimonialsSection from "@/components/home/TestimonialsSection";
 
 export default function Home() {
   return (
@@ -100,7 +99,67 @@ export default function Home() {
           </div>
         </section>
 
-        <TestimonialsSection />
+        <section className="pb-16">
+          <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/40 p-6 shadow-sm">
+            <div className="text-center">
+              <h3 className="text-2xl font-semibold text-emerald-900">What our community says</h3>
+              <p className="mt-2 text-sm text-[color:var(--muted)]">Real feedback from students and writers using EduLink.</p>
+            </div>
+            <div className="mt-6 grid gap-6 md:grid-cols-3">
+              <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-md">
+                <div className="flex items-center gap-1 text-amber-400">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span key={`sarah-star-${i}`}>★</span>
+                  ))}
+                </div>
+                <p className="mt-4 text-sm leading-relaxed text-slate-600">
+                  “EduLink Writers saved my semester! The quality of work was exceptional, and the admin approval process gave me confidence in every submission.”
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">SM</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Sarah M.</p>
+                    <p className="text-xs text-slate-500">Computer Science Student</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-md">
+                <div className="flex items-center gap-1 text-amber-400">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span key={`james-star-${i}`}>★</span>
+                  ))}
+                </div>
+                <p className="mt-4 text-sm leading-relaxed text-slate-600">
+                  “As a writer, the subscription model is fair and the M-Pesa integration makes payments seamless. I’ve earned my platinum badge in just 3 months!”
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">JK</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">James K.</p>
+                    <p className="text-xs text-slate-500">Professional Writer</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-md">
+                <div className="flex items-center gap-1 text-amber-400">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span key={`grace-star-${i}`}>★</span>
+                  ))}
+                </div>
+                <p className="mt-4 text-sm leading-relaxed text-slate-600">
+                  “The wallet system is so convenient. I fund it once and can post multiple assignments. The writers here truly understand academic standards.”
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">GA</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Grace A.</p>
+                    <p className="text-xs text-slate-500">Business Student</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer className="border-t border-[color:var(--border)] bg-white">

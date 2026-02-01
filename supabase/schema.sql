@@ -72,17 +72,6 @@ create table if not exists public.task_submissions (
   created_at timestamp with time zone default now()
 );
 
--- Testimonials
-create table if not exists public.testimonials (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  role text not null,
-  message text not null,
-  rating int check (rating between 1 and 5) not null,
-  status text check (status in ('pending','approved','rejected')) default 'pending' not null,
-  created_at timestamp with time zone default now()
-);
-
 -- Storage bucket for assignments
 -- Create via UI: storage bucket name 'assignments'
 -- Policies: allow user upload/read their own files
@@ -95,7 +84,6 @@ alter table public.assignments enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_submissions enable row level security;
-alter table public.testimonials enable row level security;
 
 -- Profiles policy: users can read their own profile; admins read all
 create policy "read own profile" on public.profiles for select using (auth.uid() = id);
@@ -130,12 +118,6 @@ create policy "writer manages own tasks" on public.tasks for all using (auth.uid
 -- Task submissions: writer manages own submissions
 create policy "writer manages own submissions" on public.task_submissions
   for all using (auth.uid() = writer_id);
-
--- Testimonials policies: public can insert, only approved are visible
-create policy "public read approved testimonials" on public.testimonials
-  for select using (status = 'approved');
-create policy "public insert testimonials" on public.testimonials
-  for insert with check (status = 'pending');
 
 -- Storage policies (Supabase storage schema)
 -- Allow users to upload and read only within their own folder in assignments bucket
