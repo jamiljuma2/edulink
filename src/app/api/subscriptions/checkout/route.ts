@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabaseServer';
 import { SUBSCRIPTION_PLANS } from '@/lib/roles';
+import { convertUsdToKes, getUsdToKesRate } from '@/lib/exchangeRates';
 
 export async function POST(req: Request) {
   const supabase = await createSupabaseServer();
@@ -28,13 +29,15 @@ export async function POST(req: Request) {
     .single();
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 400 });
 
-  const usdToKes = { basic: 645, standard: 1290, premium: 2580 } as const;
-  const kesAmount = usdToKes[plan as keyof typeof usdToKes];
+  const usdAmount = conf.price;
+  const rate = await getUsdToKesRate();
+  const kesAmount = convertUsdToKes(usdAmount, rate);
 
   return NextResponse.json({
     ok: true,
     subscriptionId: sub.id,
     amount: kesAmount,
     currency: 'KES',
+    rate,
   });
 }

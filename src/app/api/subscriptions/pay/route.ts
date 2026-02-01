@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabaseServer';
+import { SUBSCRIPTION_PLANS } from '@/lib/roles';
+import { convertUsdToKes, getUsdToKesRate } from '@/lib/exchangeRates';
 
 export async function POST(req: Request) {
   const supabase = await createSupabaseServer();
@@ -28,8 +30,10 @@ export async function POST(req: Request) {
     .single();
   if (sErr || !sub) return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
 
-  const kesByPlan: Record<string, number> = { basic: 645, standard: 1290, premium: 2580 };
-  const amount = Number(kesByPlan[sub.plan] ?? 0);
+  const conf = SUBSCRIPTION_PLANS[sub.plan as keyof typeof SUBSCRIPTION_PLANS];
+  if (!conf) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+  const rate = await getUsdToKesRate();
+  const amount = convertUsdToKes(conf.price, rate);
   if (amount < 10) return NextResponse.json({ error: 'Minimum amount is KES 10' }, { status: 400 });
 
   const lipanaKey = process.env.LIPANA_SECRET_KEY;
@@ -43,7 +47,7 @@ export async function POST(req: Request) {
       amount,
       currency: 'KES',
       status: 'pending',
-      meta: { subscription_id: subscriptionId },
+      meta: { subscription_id: subscriptionId, fx: { usd_to_kes: rate, usd_amount: conf.price } },
     })
     .select('*')
     .single();
