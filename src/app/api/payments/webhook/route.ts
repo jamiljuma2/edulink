@@ -32,8 +32,14 @@ export async function POST(req: Request) {
   const { data: txn } = await admin.from('transactions').select('*').eq('reference', transactionId).single();
   if (!txn) return NextResponse.json({ ok: true });
 
-  await admin.from('transactions').update({ status }).eq('id', txn.id);
-  if (status === 'completed') {
+  const wasCompleted = String(txn.status ?? '').toLowerCase() === 'completed';
+  const shouldCredit = status === 'completed' && !wasCompleted;
+
+  if (!wasCompleted || status !== txn.status) {
+    await admin.from('transactions').update({ status }).eq('id', txn.id);
+  }
+
+  if (shouldCredit) {
     const { data: w } = await admin.from('wallets').select('*').eq('user_id', txn.user_id).single();
     const newBal = Number(w?.balance ?? 0) + Number(txn.amount ?? 0);
     if (txn.type === 'topup') {
