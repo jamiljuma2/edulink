@@ -14,12 +14,20 @@ type Assignment = {
   due_date?: string | null;
 };
 
-export default function StudentDashboardClient() {
-    const navItems: NavItem[] = [
-      { label: 'Overview', icon: FileText },
-      { label: 'Assignments', icon: UploadCloud },
-      { label: 'Wallet', icon: Wallet },
-    ];
+type StudentDashboardClientProps = {
+  wallet: number;
+  assignments: Assignment[];
+  totalAssignments: number;
+  page: number;
+  pageSize: number;
+};
+
+export default function StudentDashboardClient({ wallet: walletProp, assignments, totalAssignments, page, pageSize }: StudentDashboardClientProps) {
+  const navItems: NavItem[] = [
+    { label: 'Overview', icon: FileText },
+    { label: 'Assignments', icon: UploadCloud },
+    { label: 'Wallet', icon: Wallet },
+  ];
   const universitySubjects = [
     'Advanced Research Methods',
     'Applied Statistics',
@@ -37,8 +45,7 @@ export default function StudentDashboardClient() {
     'Technical Report Writing',
   ];
   const supabase = useMemo(() => supabaseClient(), []);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [wallet, setWallet] = useState<number>(0);
+  const [wallet, setWallet] = useState<number>(walletProp);
   const [amount, setAmount] = useState(5);
   const [phone, setPhone] = useState('');
   const [title, setTitle] = useState('');
@@ -56,7 +63,18 @@ export default function StudentDashboardClient() {
   const [stkOverlayOpen, setStkOverlayOpen] = useState(false);
   const [stkReference, setStkReference] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+      // Keep wallet state in sync with prop if it changes (e.g. on reload)
+      useEffect(() => {
+        setWallet(walletProp);
+      }, [walletProp]);
+    // Load userId from supabase on mount
+    useEffect(() => {
+      (async () => {
+        const { data } = await supabase.auth.getUser();
+        setUserId(data.user?.id ?? null);
+      })();
+    }, [supabase]);
   const pollingRef = useRef<number | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
   const lastWalletRef = useRef<number>(0);
@@ -122,17 +140,7 @@ export default function StudentDashboardClient() {
     }
   }
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      const uid = data.user?.id ?? null;
-      setUserId(uid);
-      if (uid) {
-        await Promise.all([loadWallet(), loadAssignments()]);
-      }
-    })();
-    return () => stopWalletPolling();
-  }, [supabase]);
+  // Removed initial data loading effect; handled by server
 
   useEffect(() => {
     if (!message) return;
@@ -177,6 +185,12 @@ export default function StudentDashboardClient() {
       setStkReference(data?.reference ?? null);
       setMessage('STK push sent. Check your phone to approve payment.');
       startWalletPolling();
+      // Automatically reload page after top-up to sync wallet prop
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      }, 3000); // Wait 3s for payment processing
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         setMessage(err.response?.data?.error ?? 'Top-up failed.');
@@ -548,13 +562,27 @@ export default function StudentDashboardClient() {
                 <p className="font-medium">{a.title}</p>
                 <p className="text-sm text-[color:var(--muted)]">{a.status}</p>
                 {a.due_date && (
-                  <p className="text-xs text-[color:var(--muted)]">Due: {new Date(a.due_date).toLocaleDateString()}</p>
+                  <p className="text-xs text-[color:var(--muted)]">Due: {new Date(a.due_date).toISOString().slice(0, 10)}</p>
                 )}
               </div>
-              <span className="text-xs text-[color:var(--muted)]">{new Date(a.created_at).toLocaleDateString()}</span>
+              <span className="text-xs text-[color:var(--muted)]">{new Date(a.created_at).toISOString().slice(0, 10)}</span>
             </div>
           ))}
           {assignments.length === 0 && <p className="text-sm text-[color:var(--muted)]">No assignments yet.</p>}
+          {/* Pagination controls */}
+          {totalAssignments > pageSize && (
+            <div className="flex justify-center mt-4">
+              {Array.from({ length: Math.ceil(totalAssignments / pageSize) }, (_, i) => (
+                <a
+                  key={i}
+                  href={`?page=${i + 1}`}
+                  className={`mx-1 px-3 py-1 rounded ${page === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                >
+                  {i + 1}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

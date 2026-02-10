@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { ShieldCheck, Users, FileCheck2, Bell } from 'lucide-react';
 import DashboardShell, { NavItem } from '@/components/layouts/DashboardShell';
@@ -11,7 +12,6 @@ type Submission = {
   notes: string | null;
   created_at: string;
   storage_path: string;
-  signedUrl?: string | null;
   tasks?: { id: string; status: string; assignments?: { id: string; title: string } | null } | null;
 };
 type Payment = {
@@ -48,65 +48,79 @@ function Modal({ open, title, onClose, children }: { open: boolean; title: strin
   );
 }
 
-export default function AdminDashboardClient() {
-    const navItems: NavItem[] = [
-      { label: 'Approvals', icon: Users },
-      { label: 'Submissions', icon: FileCheck2 },
-      { label: 'Policies', icon: ShieldCheck },
-    ];
-  const [pending, setPending] = useState<Profile[]>([]);
+type AdminDashboardClientProps = {
+  pending: Profile[];
+  totalPending: number;
+  submissions: Submission[];
+  totalSubmissions: number;
+  payments: Payment[];
+  totalPayments: number;
+  withdrawals: Withdrawal[];
+  totalWithdrawals: number;
+  subPage: number;
+  payPage: number;
+  withPage: number;
+  pageSize: number;
+};
+
+export default function AdminDashboardClient({
+  pending,
+  totalPending,
+  submissions,
+  totalSubmissions,
+  payments,
+  totalPayments,
+  withdrawals,
+  totalWithdrawals,
+  subPage,
+  payPage,
+  withPage,
+  pageSize,
+}: AdminDashboardClientProps) {
+  const navItems: NavItem[] = [
+    { label: 'Approvals', icon: Users },
+    { label: 'Submissions', icon: FileCheck2 },
+    { label: 'Policies', icon: ShieldCheck },
+  ];
   const [message, setMessage] = useState<string | null>(null);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadUrls, setDownloadUrls] = useState<Record<string, string>>({});
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
   const [processingId, setProcessingId] = useState<string | null>(null);
-
-  const loadPending = useCallback(async () => {
-    const { data } = await axios.get('/api/admin/approvals');
-    setPending(data?.pending ?? []);
-  }, []);
-
-  const loadSubmissions = useCallback(async () => {
-    const { data } = await axios.get('/api/admin/submissions');
-    setSubmissions(data?.submissions ?? []);
-  }, []);
-
-  const loadPayments = useCallback(async () => {
-    const { data } = await axios.get('/api/admin/payments');
-    setPayments(data?.payments ?? []);
-  }, []);
-
-  const loadWithdrawals = useCallback(async () => {
-    const { data } = await axios.get('/api/admin/withdrawals');
-    setWithdrawals(data?.withdrawals ?? []);
-  }, []);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadPending(); loadSubmissions(); loadPayments(); loadWithdrawals(); }, [loadPending, loadSubmissions, loadPayments, loadWithdrawals]);
 
   async function approve(id: string) {
     setProcessingId(id);
     await axios.post('/api/admin/approvals', { userId: id });
     setMessage('User approved');
-    loadPending();
     setProcessingId(null);
+    // Optionally: reload page or refetch data
   }
 
   async function decideSubmission(submissionId: string, decision: 'approve' | 'reject') {
     setProcessingId(submissionId);
     await axios.post('/api/admin/submissions/decision', { submissionId, decision });
     setMessage(`Submission ${decision}d.`);
-    loadSubmissions();
     setProcessingId(null);
+    // Optionally: reload page or refetch data
   }
 
   async function approveWithdrawal(transactionId: string) {
     setProcessingId(transactionId);
     await axios.post('/api/admin/withdrawals/approve', { transactionId });
     setMessage('Withdrawal approved.');
-    loadWithdrawals();
     setProcessingId(null);
+    // Optionally: reload page or refetch data
+  }
+
+  // Use next/navigation for safe client-side query string manipulation
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  function buildPageUrl(param: string, value: number) {
+    if (!searchParams) return '#';
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.set(param, String(value));
+    return `${pathname}?${params.toString()}`;
   }
 
   return (
@@ -156,15 +170,46 @@ export default function AdminDashboardClient() {
                     </button>
                   </div>
                 </div>
-                {s.signedUrl && (
-                  <a className="mt-2 inline-block text-sm text-[color:var(--primary)] underline" href={s.signedUrl} target="_blank" rel="noreferrer">
-                    Download submission
-                  </a>
-                )}
+                <button
+                  className="mt-2 inline-block text-sm text-[color:var(--primary)] underline disabled:opacity-60"
+                  disabled={downloadingId === s.id}
+                  onClick={async () => {
+                    setDownloadingId(s.id);
+                    try {
+                      const { data } = await axios.post('/api/admin/submissions/signed-url', { storage_path: s.storage_path });
+                      if (data?.signedUrl) {
+                        setDownloadUrls((prev) => ({ ...prev, [s.id]: data.signedUrl }));
+                        window.open(data.signedUrl, '_blank', 'noopener');
+                      } else {
+                        alert('Failed to get download link.');
+                      }
+                    } catch {
+                      alert('Failed to get download link.');
+                    } finally {
+                      setDownloadingId(null);
+                    }
+                  }}
+                >
+                  {downloadingId === s.id ? 'Preparing...' : 'Download submission'}
+                </button>
               </div>
             ))}
             {submissions.length === 0 && <p className="text-sm text-[color:var(--muted)]">No submissions yet.</p>}
           </div>
+          {/* Pagination controls for submissions */}
+          {totalSubmissions > pageSize && (
+            <div className="flex justify-center mt-4">
+              {Array.from({ length: Math.ceil(totalSubmissions / pageSize) }, (_, i) => (
+                <a
+                  key={i}
+                  href={buildPageUrl('subPage', i + 1)}
+                  className={`mx-1 px-3 py-1 rounded ${subPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                >
+                  {i + 1}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -182,6 +227,20 @@ export default function AdminDashboardClient() {
             ))}
             {payments.length === 0 && <p className="text-sm text-[color:var(--muted)]">No payments yet.</p>}
           </div>
+          {/* Pagination controls for payments */}
+          {totalPayments > pageSize && (
+            <div className="flex justify-center mt-4">
+              {Array.from({ length: Math.ceil(totalPayments / pageSize) }, (_, i) => (
+                <a
+                  key={i}
+                  href={buildPageUrl('payPage', i + 1)}
+                  className={`mx-1 px-3 py-1 rounded ${payPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                >
+                  {i + 1}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -206,6 +265,20 @@ export default function AdminDashboardClient() {
             ))}
             {withdrawals.length === 0 && <p className="text-sm text-[color:var(--muted)]">No withdrawal requests.</p>}
           </div>
+          {/* Pagination controls for withdrawals */}
+          {totalWithdrawals > pageSize && (
+            <div className="flex justify-center mt-4">
+              {Array.from({ length: Math.ceil(totalWithdrawals / pageSize) }, (_, i) => (
+                <a
+                  key={i}
+                  href={buildPageUrl('withPage', i + 1)}
+                  className={`mx-1 px-3 py-1 rounded ${withPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                >
+                  {i + 1}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -237,11 +310,28 @@ export default function AdminDashboardClient() {
           <div><span className="font-semibold">Assignment:</span> {modal.data.tasks?.assignments?.title ?? 'Assignment'}</div>
           <div><span className="font-semibold">Status:</span> {modal.data.status}</div>
           <div><span className="font-semibold">Notes:</span> {modal.data.notes ?? '—'}</div>
-          {modal.data.signedUrl && (
-            <a className="text-[color:var(--primary)] underline" href={modal.data.signedUrl} target="_blank" rel="noreferrer">
-              Download submission
-            </a>
-          )}
+          <button
+            className="text-[color:var(--primary)] underline disabled:opacity-60"
+            disabled={downloadingId === modal.data.id}
+            onClick={async () => {
+              setDownloadingId(modal.data.id);
+              try {
+                const { data } = await axios.post('/api/admin/submissions/signed-url', { storage_path: modal.data.storage_path });
+                if (data?.signedUrl) {
+                  setDownloadUrls((prev) => ({ ...prev, [modal.data.id]: data.signedUrl }));
+                  window.open(data.signedUrl, '_blank', 'noopener');
+                } else {
+                  alert('Failed to get download link.');
+                }
+              } catch {
+                alert('Failed to get download link.');
+              } finally {
+                setDownloadingId(null);
+              }
+            }}
+          >
+            {downloadingId === modal.data.id ? 'Preparing...' : 'Download submission'}
+          </button>
         </div>
       )}
       {modal.kind === 'payment' && (

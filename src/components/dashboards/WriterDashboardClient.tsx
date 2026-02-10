@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { Pagination } from '@/components/Pagination'; // Assuming Pagination is a component for pagination controls
 import { SUBSCRIPTION_PLANS, SubscriptionPlan } from '@/lib/roles';
 import { supabaseClient } from '@/lib/supabaseClient';
 import { FileCheck, Briefcase, Wallet, Bell } from 'lucide-react';
@@ -104,6 +105,21 @@ export default function WriterDashboardClient() {
       setTasksToday(0);
       setRemaining(null);
     }
+      type WriterDashboardClientProps = {
+        hasSubscription: boolean;
+        plan: string | null;
+        tasksPerDay: number;
+        openAssignments: Assignment[];
+        totalOpenAssignments: number;
+        page: number;
+        pageSize: number;
+        myTasks: Task[];
+        submissions: Submission[];
+        earningTasks: EarningTask[];
+        approvedTasks: number;
+        taskRate: number;
+        availableEarnings: number;
+      };
   }
 
   async function loadOpenAssignments() {

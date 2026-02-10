@@ -31,12 +31,6 @@ export async function GET(req: Request) {
     .range(offset, to);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  const submissions = await Promise.all(
-    (data ?? []).map(async (s) => {
-      const { data: signed } = await admin.storage.from('submissions').createSignedUrl(s.storage_path, 3600);
-      return { ...s, signedUrl: signed?.signedUrl ?? null };
-    })
-  );
-
-  return NextResponse.json({ submissions });
+  // Do not generate signed URLs here; just return the data with storage_path
+  return NextResponse.json({ submissions: data ?? [] });
 }
