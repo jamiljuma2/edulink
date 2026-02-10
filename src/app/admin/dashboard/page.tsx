@@ -38,14 +38,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
   // Fetch all dashboard data in parallel
   const [pendingRes, submissionsRes, paymentsRes, withdrawalsRes] = await Promise.all([
     supabase.from('profiles').select('id, email, display_name, role, approval_status, created_at', { count: 'exact' }).eq('approval_status', 'pending').order('created_at', { ascending: true }).range(0, 9),
-    supabase.from('task_submissions').select('id, status, notes, created_at, storage_path, task_id, writer_id, tasks:task_id (id, status, assignments:assignment_id (id, title, student_id, writer_id))', { count: 'exact' }).order('created_at', { ascending: false }).range(subFrom, subTo),
+    supabase.from('task_submissions').select('id, status, notes, created_at, storage_path, task_id, writer_id, tasks:task_id!inner (id, status, assignments:assignment_id (id, title, student_id, writer_id))', { count: 'exact' }).order('created_at', { ascending: false }).range(subFrom, subTo),
     supabase.from('transactions').select('id, user_id, type, amount, currency, status, reference, meta, created_at', { count: 'exact' }).order('created_at', { ascending: false }).range(payFrom, payTo),
     supabase.from('transactions').select('id, user_id, type, amount, currency, status, reference, meta, created_at', { count: 'exact' }).eq('type', 'payout').order('created_at', { ascending: false }).range(withFrom, withTo),
   ]);
 
   const pending = pendingRes.data ?? [];
   const totalPending = pendingRes.count ?? pending.length;
-  const submissions = submissionsRes.data ?? [];
+  // Map tasks array to single object for each submission (if needed)
+  const submissions = (submissionsRes.data ?? []).map((s: any) => ({
+    ...s,
+    tasks: Array.isArray(s.tasks) ? s.tasks[0] : s.tasks
+  }));
   const totalSubmissions = submissionsRes.count ?? submissions.length;
   const payments = paymentsRes.data ?? [];
   const totalPayments = paymentsRes.count ?? payments.length;
