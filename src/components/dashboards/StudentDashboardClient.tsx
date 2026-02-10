@@ -131,14 +131,14 @@ export default function StudentDashboardClient({ wallet: walletProp, assignments
     }
   }
 
-  async function loadAssignments() {
-    try {
-      const { data } = await axios.get('/api/student/assignments');
-      setAssignments(data?.assignments ?? []);
-    } catch (err: unknown) {
-      setMessage(getAxiosMessage(err, 'Unable to load assignments.'));
-    }
-  }
+  // async function loadAssignments() {
+  //   try {
+  //     const { data } = await axios.get('/api/student/assignments');
+  //     // setAssignments(data?.assignments ?? []); // assignments are props, not state
+  //   } catch (err: unknown) {
+  //     setMessage(getAxiosMessage(err, 'Unable to load assignments.'));
+  //   }
+  // }
 
   // Removed initial data loading effect; handled by server
 
@@ -307,7 +307,7 @@ export default function StudentDashboardClient({ wallet: walletProp, assignments
       setBudget(25);
       setFile(null);
       setFileName('');
-      await loadAssignments();
+      // assignments are props, not state; no need to reload here
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         setMessage(err.response?.data?.error ?? 'Upload failed.');
