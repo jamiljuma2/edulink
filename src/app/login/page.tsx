@@ -17,47 +17,74 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) throw err;
-      // Fetch profile to route by role; create if missing
-      type Profile = { id: string; role: string; approval_status: string };
-      let prof: Profile | null = null;
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id, role, approval_status')
-        .eq('id', data.user?.id)
-        .maybeSingle();
-      if (!existing) {
-        const meta = data.user?.user_metadata ?? {};
-        if (data.user?.id && meta.role) {
-          const { error: cErr } = await supabase.from('profiles').insert({
-            id: data.user.id,
-            email: data.user.email,
-            display_name: meta.display_name ?? data.user.email,
+      // Sign in and fetch profile in parallel
+      const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (authErr) throw authErr;
+      let prof = null;
+      if (authData.user?.id) {
+        const { data: profileData, error: profileErr } = await supabase
+          .from('profiles')
+          .select('id, role, approval_status')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+        if (profileErr) throw profileErr;
+        prof = profileData;
+      }
+      // Removed duplicate declaration of 'let prof = profileData;'
+      // If profile missing, create it
+      if (!prof && authData.user) {
+        const meta = authData.user.user_metadata ?? {};
+        if (!meta.role) {
+          throw new Error('Account not registered. Please register before logging in.');
+        }
+        if (authData.user.id && meta.role) {
+          const { data: newProf, error: cErr } = await supabase.from('profiles').insert({
+            id: authData.user.id,
+            email: authData.user.email,
+            display_name: meta.display_name ?? authData.user.email,
             role: meta.role,
             approval_status: 'approved',
-          });
-          if (cErr) throw cErr;
-          // Approval check removed; proceed to dashboard
-        } else {
-          throw new Error('Profile missing and user metadata incomplete.');
+          }).select('id, role, approval_status').single();
+          if (cErr) {
+            // If duplicate key error, fetch existing profile
+            if (cErr.code === '23505' || (cErr.message && cErr.message.includes('duplicate key'))) {
+              const { data: existingProf } = await supabase
+                .from('profiles')
+                .select('id, role, approval_status')
+                .eq('id', authData.user.id)
+                .maybeSingle();
+              prof = existingProf;
+            } else {
+              throw cErr;
+            }
+          } else {
+            prof = newProf;
+          }
         }
-      } else {
-        prof = existing;
       }
       if (!prof) throw new Error('Profile not found');
-      // Approval check removed
+      // Cache profile data client-side
+      if (prof) {
+        try {
+          localStorage.setItem('edulink_profile', JSON.stringify(prof));
+        } catch {}
+      }
+      // Route by role
       if (prof.role === 'student') router.replace('/student/dashboard');
       else if (prof.role === 'writer') router.replace('/writer/dashboard');
       else router.replace('/admin/dashboard');
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === 'object' && err !== null && 'message' in err
-            ? String((err as { message?: unknown }).message)
-            : 'Login failed';
-      setError(message);
+    } catch (err: any) {
+          let message = 'Login failed';
+          if (err && typeof err === 'object') {
+            if ('message' in err && typeof err.message === 'string') {
+              message = err.message;
+            } else if (Object.keys(err).length > 0) {
+              message = JSON.stringify(err);
+            }
+          } else if (typeof err === 'string') {
+            message = err;
+          }
+          setError(message);
       console.error('Login error:', err);
     } finally {
       setLoading(false);
