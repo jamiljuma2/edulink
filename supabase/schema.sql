@@ -240,3 +240,8 @@ create index if not exists idx_registration_logs_user_id on public.registration_
 create index if not exists idx_registration_logs_created_at on public.registration_logs (created_at desc);
 create index if not exists idx_registration_logs_action on public.registration_logs (action);
 create index if not exists idx_registration_logs_user_id_action on public.registration_logs (user_id, action);
+
+-- Remove unused extensions for performance and security
+drop extension if exists pg_cron cascade;
+drop extension if exists pg_graphql cascade;
+drop extension if exists supabase_vault cascade;
