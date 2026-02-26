@@ -71,6 +71,13 @@ create table if not exists public.task_submissions (
   status text check (status in ('pending','approved','rejected')) default 'pending' not null,
   created_at timestamp with time zone default now()
 );
+-- Registration logs table
+create table if not exists public.registration_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  action text not null,
+  created_at timestamp with time zone default now()
+);
 
 -- Storage bucket for assignments
 -- Create via UI: storage bucket name 'assignments'
@@ -84,40 +91,109 @@ alter table public.assignments enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_submissions enable row level security;
+alter table public.registration_logs enable row level security;
 
 -- Profiles policy: users can read their own profile; admins read all
-create policy "read own profile" on public.profiles for select using (auth.uid() = id);
-create policy "update own profile" on public.profiles for update using (auth.uid() = id);
-create policy "insert own profile" on public.profiles for insert with check (auth.uid() = id);
--- Admin role check requires JWT with role claim; alternatively manage via RPC or service key on server routes
+
+-- Remove old policies if they exist
+drop policy if exists "read own profile" on public.profiles;
+drop policy if exists "update own profile" on public.profiles;
+drop policy if exists "insert own profile" on public.profiles;
+
+-- Optimized combined SELECT policy
+create policy "optimized read profile" on public.profiles
+  for select using (
+    (role = 'admin') OR (id = (select auth.uid()))
+  );
+create policy "update own profile" on public.profiles
+  for update using (id = (select auth.uid()));
+create policy "insert own profile" on public.profiles
+  for insert with check (id = (select auth.uid()));
 
 -- Wallets policy: user can read/update their own wallet
-create policy "read own wallet" on public.wallets for select using (auth.uid() = user_id);
-create policy "update own wallet" on public.wallets for update using (auth.uid() = user_id);
+
+drop policy if exists "read own wallet" on public.wallets;
+drop policy if exists "update own wallet" on public.wallets;
+create policy "optimized wallet access" on public.wallets
+  for select using (
+    (user_id = (select auth.uid())) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
+create policy "optimized wallet update" on public.wallets
+  for update using (
+    (user_id = (select auth.uid())) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
 
 -- Transactions policy: user can insert/read their own transactions
-create policy "insert own transactions" on public.transactions for insert with check (auth.uid() = user_id);
-create policy "read own transactions" on public.transactions for select using (auth.uid() = user_id);
+
+drop policy if exists "insert own transactions" on public.transactions;
+drop policy if exists "read own transactions" on public.transactions;
+create policy "optimized transactions access" on public.transactions
+  for select using (
+    (user_id = (select auth.uid())) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
+create policy "optimized transactions insert" on public.transactions
+  for insert with check (
+    (user_id = (select auth.uid())) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
 
 -- Assignments policy: student can manage own assignments; writer read open
-create policy "student manages own assignments" on public.assignments for all using (auth.uid() = student_id);
-create policy "writer reads open assignments" on public.assignments for select using (true);
-create policy "writer claim open assignment" on public.assignments
-  for update using (status = 'open' and writer_id is null)
-  with check (writer_id = auth.uid());
-create policy "writer updates assigned assignments" on public.assignments
-  for update using (auth.uid() = writer_id)
-  with check (writer_id = auth.uid());
+
+drop policy if exists "student manages own assignments" on public.assignments;
+drop policy if exists "writer reads open assignments" on public.assignments;
+drop policy if exists "writer claim open assignment" on public.assignments;
+drop policy if exists "writer updates assigned assignments" on public.assignments;
+create policy "optimized assignments access" on public.assignments
+  for select using (
+    (student_id = (select auth.uid()))
+    OR (writer_id = (select auth.uid()))
+    OR (status = 'open' AND writer_id IS NULL)
+    OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
+create policy "optimized assignments update" on public.assignments
+  for update using (
+    (student_id = (select auth.uid()))
+    OR (writer_id = (select auth.uid()))
+    OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
 
 -- Subscriptions policy: writer manages own
-create policy "writer manages own subscriptions" on public.subscriptions for all using (auth.uid() = writer_id);
+
+drop policy if exists "writer manages own subscriptions" on public.subscriptions;
+create policy "optimized subscriptions access" on public.subscriptions
+  for all using (
+    (writer_id = (select auth.uid()))
+    OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
 
 -- Tasks policy: writer manages own tasks
-create policy "writer manages own tasks" on public.tasks for all using (auth.uid() = writer_id);
+
+drop policy if exists "writer manages own tasks" on public.tasks;
+create policy "optimized tasks access" on public.tasks
+  for all using (
+    (writer_id = (select auth.uid()))
+    OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
 
 -- Task submissions: writer manages own submissions
-create policy "writer manages own submissions" on public.task_submissions
-  for all using (auth.uid() = writer_id);
+
+drop policy if exists "writer manages own submissions" on public.task_submissions;
+create policy "optimized submissions access" on public.task_submissions
+  for all using (
+    (writer_id = (select auth.uid()))
+    OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+  );
+  -- Registration logs RLS policies
+  drop policy if exists "insert own registration log" on public.registration_logs;
+  drop policy if exists "read own registration log" on public.registration_logs;
+  create policy "optimized registration log insert" on public.registration_logs
+    for insert with check (
+      user_id = (select auth.uid())
+    );
+  create policy "optimized registration log read" on public.registration_logs
+    for select using (
+      user_id = (select auth.uid())
+      OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = (select auth.uid()) AND role = 'admin'))
+    );
 
 -- Storage policies (Supabase storage schema)
 -- Allow users to upload and read only within their own folder in assignments bucket
