@@ -234,3 +234,9 @@ create index if not exists idx_task_submissions_created_at on public.task_submis
 create index if not exists idx_assignments_status on public.assignments (status);
 create index if not exists idx_assignments_student_id on public.assignments (student_id);
 create index if not exists idx_assignments_writer_id on public.assignments (writer_id);
+
+-- Indexes for registration_logs
+create index if not exists idx_registration_logs_user_id on public.registration_logs (user_id);
+create index if not exists idx_registration_logs_created_at on public.registration_logs (created_at desc);
+create index if not exists idx_registration_logs_action on public.registration_logs (action);
+create index if not exists idx_registration_logs_user_id_action on public.registration_logs (user_id, action);
