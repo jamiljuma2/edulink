@@ -19,13 +19,6 @@ export async function POST(request: Request) {
   }
   try {
     const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken, true);
-    console.log('Register token debug:', {
-      uid: decoded.uid,
-      email: decoded.email,
-      aud: decoded.aud,
-      iss: decoded.iss,
-      firebaseProject: decoded.firebase?.sign_in_provider,
-    });
     // Check if email already belongs to a different user
     const { rows: existing } = await query<{ id: string }>(
       'select id from profiles where email = $1',

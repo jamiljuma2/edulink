@@ -1,13 +1,10 @@
 
 import WriterDashboardClient from '@/components/dashboards/WriterDashboardClient';
 import { requireRole } from '@/lib/auth';
-import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { query } from '@/lib/db';
 
 export default async function WriterDashboard({ searchParams }: { searchParams?: any }) {
-  await requireRole('writer');
-  const user = await getServerFirebaseUser();
-  if (!user) return null;
+  const { user } = await requireRole('writer');
 
   // Await searchParams if it's a Promise, then use .get('page') for URLSearchParams, else fallback to object
   let params = searchParams;

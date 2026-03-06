@@ -77,7 +77,6 @@ export default function RegisterClient() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[AUTH] handleRegister fired');
     if (!startAuthFlow()) return;
     try {
       const normalizedEmail = email.trim().toLowerCase();
@@ -123,7 +122,6 @@ export default function RegisterClient() {
   async function handleGoogleRegister(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[AUTH] handleGoogleRegister fired');
     if (!startAuthFlow()) return;
     try {
       const provider = new GoogleAuthProvider();

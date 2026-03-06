@@ -78,7 +78,6 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[AUTH] handleLogin fired');
     if (!startAuthFlow()) return;
     try {
       const normalizedEmail = email.trim().toLowerCase();
@@ -123,7 +122,6 @@ export default function LoginPage() {
   async function handleGoogleLogin(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[AUTH] handleGoogleLogin fired');
     if (!startAuthFlow()) return;
     try {
       const provider = new GoogleAuthProvider();

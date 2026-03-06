@@ -1,13 +1,10 @@
 
 import StudentDashboardClient from '@/components/dashboards/StudentDashboardClient';
 import { requireRole } from '@/lib/auth';
-import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { query } from '@/lib/db';
 
 export default async function StudentDashboard({ searchParams }: { searchParams?: any }) {
-  await requireRole('student');
-  const user = await getServerFirebaseUser();
-  if (!user) return null;
+  const { user } = await requireRole('student');
 
   // Await searchParams if it's a Promise, then use .get('page') for URLSearchParams, else fallback to object
   let params = searchParams;

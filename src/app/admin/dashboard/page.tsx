@@ -1,7 +1,6 @@
 
 import AdminDashboardClient from '@/components/dashboards/AdminDashboardClient';
 import { requireRole } from '@/lib/auth';
-import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { query } from '@/lib/db';
 
 type ProfileRow = {
@@ -47,8 +46,6 @@ type PaymentRow = {
 
 export default async function AdminDashboard({ searchParams }: { searchParams?: any }) {
   await requireRole('admin');
-  const user = await getServerFirebaseUser();
-  if (!user) return null;
 
   // Await searchParams if it's a Promise, then use .get for URLSearchParams, else fallback to object
   let params = searchParams;
