@@ -170,9 +170,6 @@ export default function Home() {
               <p>edulinkwriters@gmail.com</p>
             </div>
             <div className="flex flex-wrap gap-6">
-              <Link href="/login" className="hover:text-[color:var(--primary)]">Login</Link>
-              <Link href="/register?role=student" className="hover:text-[color:var(--primary)]">Join as Student</Link>
-              <Link href="/register?role=writer" className="hover:text-[color:var(--primary)]">Join as Writer</Link>
               <Link href="/about" className="hover:text-[color:var(--primary)]">About</Link>
               <Link href="/contact" className="hover:text-[color:var(--primary)]">Contact</Link>
               <Link href="/privacy" className="hover:text-[color:var(--primary)]">Privacy</Link>
