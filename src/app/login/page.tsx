@@ -19,6 +19,23 @@ export default function LoginPage() {
   const router = useRouter();
   const auth = useMemo(() => getFirebaseAuth(), []);
 
+  function formatAuthError(err: unknown, fallback: string) {
+    const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback;
+    const message = String(raw ?? '').trim();
+    const lowered = message.toLowerCase();
+    if (
+      lowered.includes('auth/') ||
+      lowered.includes('invalid') ||
+      lowered.includes('credential') ||
+      lowered.includes('token') ||
+      message.startsWith('{') ||
+      message.startsWith('[')
+    ) {
+      return 'Invalid details.';
+    }
+    return message || fallback;
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -51,13 +68,7 @@ export default function LoginPage() {
       else if (role === 'writer') router.replace('/writer/dashboard');
       else router.replace('/admin/dashboard');
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === 'object' && err !== null && 'message' in err
-            ? String((err as { message?: unknown }).message)
-            : 'Login failed';
-      setError(message);
+      setError(formatAuthError(err, 'Login failed'));
       console.error('Login error:', err);
     } finally {
       setLoading(false);
@@ -96,8 +107,7 @@ export default function LoginPage() {
       else if (role === 'writer') router.replace('/writer/dashboard');
       else router.replace('/admin/dashboard');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Google sign-in failed';
-      setError(message);
+      setError(formatAuthError(err, 'Google sign-in failed'));
       console.error('Google login error:', err);
     } finally {
       setLoading(false);

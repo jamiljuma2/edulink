@@ -20,6 +20,23 @@ export default function RegisterClient() {
 
   const auth = useMemo(() => getFirebaseAuth(), []);
 
+  function formatAuthError(err: unknown, fallback: string) {
+    const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback;
+    const message = String(raw ?? '').trim();
+    const lowered = message.toLowerCase();
+    if (
+      lowered.includes('auth/') ||
+      lowered.includes('invalid') ||
+      lowered.includes('credential') ||
+      lowered.includes('token') ||
+      message.startsWith('{') ||
+      message.startsWith('[')
+    ) {
+      return 'Invalid details.';
+    }
+    return message || fallback;
+  }
+
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -54,8 +71,7 @@ export default function RegisterClient() {
         else router.replace('/writer/dashboard');
       }, 300);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
-      setError(message);
+      setError(formatAuthError(err, 'Registration failed'));
     } finally {
       setLoading(false);
     }
@@ -102,8 +118,7 @@ export default function RegisterClient() {
         else router.replace('/writer/dashboard');
       }, 300);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Google sign-up failed';
-      setError(message);
+      setError(formatAuthError(err, 'Google sign-up failed'));
     } finally {
       setLoading(false);
     }
