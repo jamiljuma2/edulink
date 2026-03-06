@@ -3,12 +3,19 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebaseClient';
+import type { UserRole } from '@/lib/roles';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsProfile, setNeedsProfile] = useState(false);
+  const [profileRole, setProfileRole] = useState<UserRole>('student');
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileToken, setProfileToken] = useState('');
+  const [creatingProfile, setCreatingProfile] = useState(false);
   const router = useRouter();
   const auth = useMemo(() => getFirebaseAuth(), []);
 
@@ -19,7 +26,7 @@ export default function LoginPage() {
     setError(null);
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await credential.user.getIdToken(true);
+      const idToken = await credential.user.getIdToken();
       const sessionRes = await fetch('/api/auth/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,13 +36,17 @@ export default function LoginPage() {
         const detail = await sessionRes.json().catch(() => ({}));
         throw new Error(detail?.error ?? 'Unable to start session.');
       }
-      const profileRes = await fetch('/api/auth/profile');
-      if (!profileRes.ok) {
-        const detail = await profileRes.json().catch(() => ({}));
-        throw new Error(detail?.error ?? 'Profile not found.');
+      const sessionData = await sessionRes.json().catch(() => ({}));
+      const profile = sessionData?.profile ?? null;
+      if (!profile) {
+        const displayName = credential.user.displayName ?? credential.user.email ?? '';
+        setProfileName(displayName);
+        setProfileEmail(credential.user.email ?? '');
+        setProfileToken(idToken);
+        setNeedsProfile(true);
+        return;
       }
-      const profile = await profileRes.json();
-      const role = profile?.profile?.role ?? null;
+      const role = profile?.role ?? null;
       if (role === 'student') router.replace('/student/dashboard');
       else if (role === 'writer') router.replace('/writer/dashboard');
       else router.replace('/admin/dashboard');
@@ -108,6 +119,93 @@ export default function LoginPage() {
           border-color: #34d399 !important;
         }
       `}</style>
+      {needsProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-[color:var(--border)] bg-white p-6 shadow-xl">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Complete your profile</h2>
+              <p className="mt-1 text-sm text-[color:var(--muted)]">Choose a role to finish setting up your account.</p>
+            </div>
+            <label className="block">
+              <span className="text-sm">Role</span>
+              <select
+                value={profileRole}
+                onChange={(e) => setProfileRole(e.target.value as UserRole)}
+                className="mt-1 w-full rounded-xl border border-emerald-200 bg-white p-3 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                disabled={creatingProfile}
+              >
+                <option value="student">Student</option>
+                <option value="writer">Writer</option>
+              </select>
+            </label>
+            <label className="mt-3 block">
+              <span className="text-sm">Display name</span>
+              <input
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-emerald-200 bg-white p-3 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                disabled={creatingProfile}
+                placeholder="Your name"
+              />
+            </label>
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            <div className="mt-5 flex gap-3">
+              <button
+                className="btn-secondary w-full"
+                onClick={() => {
+                  setNeedsProfile(false);
+                  setProfileToken('');
+                }}
+                disabled={creatingProfile}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary w-full disabled:opacity-60"
+                disabled={creatingProfile}
+                onClick={async () => {
+                  if (!profileToken) return;
+                  if (!profileName.trim()) {
+                    setError('Please enter a display name.');
+                    return;
+                  }
+                  setCreatingProfile(true);
+                  setError(null);
+                  try {
+                    const registerRes = await fetch('/api/auth/register', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        idToken: profileToken,
+                        role: profileRole,
+                        displayName: profileName.trim(),
+                        email: profileEmail,
+                      }),
+                    });
+                    if (!registerRes.ok) {
+                      const detail = await registerRes.json().catch(() => ({}));
+                      throw new Error(detail?.error ?? 'Failed to create profile.');
+                    }
+                    const profileRes = await fetch('/api/auth/profile');
+                    const profile = await profileRes.json().catch(() => ({}));
+                    const role = profile?.profile?.role ?? profileRole;
+                    if (role === 'student') router.replace('/student/dashboard');
+                    else if (role === 'writer') router.replace('/writer/dashboard');
+                    else router.replace('/admin/dashboard');
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Failed to create profile.';
+                    setError(message);
+                  } finally {
+                    setCreatingProfile(false);
+                  }
+                }}
+              >
+                {creatingProfile ? 'Saving...' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

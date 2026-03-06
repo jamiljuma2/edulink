@@ -32,6 +32,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Registration error:', error);
+    if (error instanceof Error) {
+      console.error('Registration error message:', error.message);
+    }
     return NextResponse.json({ error: 'Invalid token.' }, { status: 401 });
   }
 }

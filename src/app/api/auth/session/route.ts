@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getFirebaseAdminAuth } from '@/lib/firebaseAdmin';
+import { query } from '@/lib/db';
 import { FIREBASE_SESSION_COOKIE } from '@/lib/firebaseAuth';
 
 const SESSION_EXPIRES_IN_MS = 5 * 24 * 60 * 60 * 1000;
@@ -11,10 +12,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing idToken.' }, { status: 400 });
   }
   try {
-    const sessionCookie = await getFirebaseAdminAuth().createSessionCookie(idToken, {
+    const adminAuth = getFirebaseAdminAuth();
+    const sessionCookie = await adminAuth.createSessionCookie(idToken, {
       expiresIn: SESSION_EXPIRES_IN_MS,
     });
-    const response = NextResponse.json({ ok: true });
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    const { rows } = await query(
+      'select id, role, approval_status from profiles where id = $1',
+      [decoded.uid]
+    );
+    const profile = rows[0] ?? null;
+    const response = NextResponse.json({ ok: true, profile });
     response.cookies.set(FIREBASE_SESSION_COOKIE, sessionCookie, {
       httpOnly: true,
       sameSite: 'lax',
@@ -22,9 +30,13 @@ export async function POST(request: Request) {
       path: '/',
       maxAge: SESSION_EXPIRES_IN_MS / 1000,
     });
+    response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (error) {
     console.error('Session cookie error:', error);
+    if (error instanceof Error) {
+      console.error('Session cookie error message:', error.message);
+    }
     return NextResponse.json({ error: 'Invalid token.' }, { status: 401 });
   }
 }
