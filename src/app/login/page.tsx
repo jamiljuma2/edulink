@@ -123,7 +123,12 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const actionUrl = `${baseUrl}/reset-password`;
+      await sendPasswordResetEmail(auth, email.trim(), {
+        url: actionUrl,
+        handleCodeInApp: true,
+      });
       setError('Password reset email sent. Check your inbox.');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to send reset email.';
