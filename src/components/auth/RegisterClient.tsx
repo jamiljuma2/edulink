@@ -149,13 +149,13 @@ export default function RegisterClient() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6">
-        <div className="w-full max-w-md rounded-3xl border border-[color:var(--border)] bg-white/90 p-8 shadow-xl backdrop-blur">
+        <div className="isolate w-full max-w-md rounded-3xl border border-[color:var(--border)] bg-white/90 p-8 shadow-xl backdrop-blur">
           <div className="mb-6">
             <p className="text-xs uppercase tracking-widest text-emerald-600">EduLink Writers</p>
             <h1 className="text-2xl font-semibold">Create your account</h1>
             <p className="mt-1 text-sm text-[color:var(--muted)]">Join as a student or writer in minutes.</p>
           </div>
-          <div className="space-y-3">
+          <div className="relative z-0 space-y-3">
             <button
               type="button"
               onClick={handleGoogleRegister}
@@ -179,7 +179,7 @@ export default function RegisterClient() {
               <span className="h-px flex-1 bg-slate-200" />
             </div>
           </div>
-          <form onSubmit={handleRegister} className="space-y-4" aria-busy={loading}>
+          <form onSubmit={handleRegister} className="relative z-10 space-y-4" aria-busy={loading}>
             <label className="block">
               <span className="text-sm">Role</span>
               <select

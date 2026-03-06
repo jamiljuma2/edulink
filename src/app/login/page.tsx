@@ -171,13 +171,13 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6">
-        <div className="w-full max-w-md rounded-3xl border border-[color:var(--border)] bg-white/90 p-8 shadow-xl backdrop-blur">
+        <div className="isolate w-full max-w-md rounded-3xl border border-[color:var(--border)] bg-white/90 p-8 shadow-xl backdrop-blur">
           <div className="mb-6">
             <p className="text-xs uppercase tracking-widest text-emerald-600">EduLink Writers</p>
             <h1 className="text-2xl font-semibold">Welcome back</h1>
             <p className="mt-1 text-sm text-[color:var(--muted)]">Sign in to manage assignments and payments.</p>
           </div>
-          <div className="space-y-3">
+          <div className="relative z-0 space-y-3">
             <button
               type="button"
               onClick={handleGoogleLogin}
@@ -201,7 +201,7 @@ export default function LoginPage() {
               <span className="h-px flex-1 bg-slate-200" />
             </div>
           </div>
-          <form onSubmit={handleLogin} className="space-y-4" aria-busy={loading}>
+          <form onSubmit={handleLogin} className="relative z-10 space-y-4" aria-busy={loading}>
             <label className="block">
               <span className="text-sm">Email</span>
               <input
