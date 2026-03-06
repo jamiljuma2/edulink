@@ -26,6 +26,15 @@ export async function POST(request: Request) {
       iss: decoded.iss,
       firebaseProject: decoded.firebase?.sign_in_provider,
     });
+    // Check if email already belongs to a different user
+    const { rows: existing } = await query<{ id: string }>(
+      'select id from profiles where email = $1',
+      [email]
+    );
+    if (existing.length > 0 && existing[0].id !== decoded.uid) {
+      return NextResponse.json({ error: 'An account with this email already exists. Try logging in instead.' }, { status: 409 });
+    }
+
     await query(
       `insert into profiles (id, email, display_name, role, approval_status)
        values ($1, $2, $3, $4, 'approved')
@@ -42,6 +51,12 @@ export async function POST(request: Request) {
     if (error instanceof Error) {
       console.error('Registration error message:', error.message);
     }
-    return NextResponse.json({ error: 'Invalid token.' }, { status: 401 });
+    const isTokenError = error instanceof Error && (
+      error.message.includes('token') || error.message.includes('auth')
+    );
+    if (isTokenError) {
+      return NextResponse.json({ error: 'Invalid token.' }, { status: 401 });
+    }
+    return NextResponse.json({ error: 'Registration failed. Please try again.' }, { status: 500 });
   }
 }
