@@ -73,6 +73,7 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
   const [payPhone, setPayPhone] = useState('');
   const [payAmount, setPayAmount] = useState<number | null>(null);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
@@ -175,21 +176,31 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
 
   async function subscribe(plan: SubscriptionPlan) {
     setMessage(null);
+    setPayOpen(true);
+    setCheckoutLoading(true);
+    setPayAmount(null);
+    setSubscriptionId(null);
     try {
       const { data } = await axios.post('/api/subscriptions/checkout', { plan });
       setSubscriptionId(data?.subscriptionId ?? null);
       setPayAmount(data?.amount ?? null);
-      setPayOpen(true);
     } catch (err: unknown) {
+      setPayOpen(false);
       if (axios.isAxiosError(err)) {
         setMessage(err.response?.data?.error ?? 'Failed to start subscription checkout.');
       } else {
         setMessage('Failed to start subscription checkout.');
       }
+    } finally {
+      setCheckoutLoading(false);
     }
   }
 
   async function submitPayment() {
+    if (checkoutLoading) {
+      setMessage('Payment details are still loading. Please wait a moment.');
+      return;
+    }
     if (!subscriptionId) {
       setMessage('Subscription not found. Please choose a plan again.');
       return;
@@ -434,11 +445,14 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
               </button>
             </div>
             <div className="mt-4 space-y-3">
-              <div className="text-sm text-[color:var(--muted)]">Amount: KES {payAmount ?? '—'}</div>
+              <div className="text-sm text-[color:var(--muted)]">
+                Amount: {checkoutLoading ? 'Loading payment details...' : `KES ${payAmount ?? '—'}`}
+              </div>
               <input
                 value={payPhone}
                 onChange={(e) => setPayPhone(e.target.value)}
                 placeholder="Phone e.g. +254712345678"
+                disabled={checkoutLoading || paying}
                 className="w-full rounded-xl border border-indigo-100 bg-indigo-50/30 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               />
               <button
@@ -446,10 +460,10 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
                   setActive('pay-modal', 'pay');
                   submitPayment();
                 }}
-                disabled={paying}
+                disabled={paying || checkoutLoading || !subscriptionId}
                 className={`btn-primary btn-pressable w-full disabled:opacity-60 ${isActive('pay-modal', 'pay') ? 'active' : ''}`}
               >
-                {paying ? 'Processing...' : 'Pay Now'}
+                {checkoutLoading ? 'Preparing payment...' : paying ? 'Processing...' : 'Pay Now'}
               </button>
             </div>
           </div>
