@@ -209,7 +209,6 @@ export default function RegisterClient() {
               />
             </label>
             {error && <p className="text-sm text-red-600">{error}</p>}
-            {ok && <p className="text-sm text-emerald-600">{ok}</p>}
             <button
               disabled={loading}
               className="w-full rounded-full bg-emerald-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-emerald-200 disabled:opacity-60"
@@ -231,6 +230,14 @@ export default function RegisterClient() {
           border-color: #34d399 !important;
         }
       `}</style>
+      {ok && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-emerald-100 bg-white p-6 text-center shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-900">Registration successful</h2>
+            <p className="mt-2 text-sm text-emerald-700">{ok}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
