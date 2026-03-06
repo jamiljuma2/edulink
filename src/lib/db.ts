@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, type QueryResultRow } from 'pg';
 
 const connectionString = process.env.DATABASE_URL;
 const isNeon = Boolean(connectionString && /neon\.tech/i.test(connectionString));
@@ -8,7 +8,7 @@ const pool = new Pool({
   ssl: isNeon ? { rejectUnauthorized: false } : undefined,
 });
 
-export async function query<T = any>(text: string, params: Array<unknown> = []) {
+export async function query<T extends QueryResultRow = any>(text: string, params: Array<unknown> = []) {
   return pool.query<T>(text, params);
 }
 
