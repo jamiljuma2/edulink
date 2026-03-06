@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { query } from '@/lib/db';
 
+type TransactionRow = {
+  id: string;
+};
+
 export async function POST(req: Request) {
   const { amount } = await req.json();
   const user = await getServerFirebaseUser();
@@ -47,7 +51,7 @@ export async function POST(req: Request) {
     }, { status: 400 });
   }
 
-  const { rows: txnRows } = await query(
+  const { rows: txnRows } = await query<TransactionRow>(
     `insert into transactions (user_id, type, amount, currency, status, meta)
      values ($1, $2, $3, $4, $5, $6)
      returning *`,
