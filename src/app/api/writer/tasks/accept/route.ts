@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server';
 import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { getClient, query } from '@/lib/db';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function POST(req: Request) {
   const { assignmentId } = await req.json();
+  if (typeof assignmentId !== 'string' || !UUID_RE.test(assignmentId)) {
+    return NextResponse.json({ error: 'Invalid assignment id' }, { status: 400 });
+  }
   const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -62,8 +67,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, assignment });
   } catch (err: unknown) {
     await client.query('ROLLBACK');
-    const message = err instanceof Error ? err.message : 'Failed to accept assignment';
-    return NextResponse.json({ error: message }, { status: 400 });
+    console.error('Accept assignment error:', err);
+    return NextResponse.json({ error: 'Failed to accept assignment' }, { status: 400 });
   } finally {
     client.release();
   }

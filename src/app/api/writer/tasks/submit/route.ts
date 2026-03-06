@@ -2,8 +2,16 @@ import { NextResponse } from 'next/server';
 import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { getClient, query } from '@/lib/db';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function POST(req: Request) {
   const { taskId, storagePath, notes } = await req.json();
+  if (typeof taskId !== 'string' || !UUID_RE.test(taskId)) {
+    return NextResponse.json({ error: 'Invalid task id' }, { status: 400 });
+  }
+  if (typeof storagePath !== 'string' || storagePath.length < 3) {
+    return NextResponse.json({ error: 'Invalid storage path' }, { status: 400 });
+  }
   const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -40,8 +48,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     await client.query('ROLLBACK');
-    const message = err instanceof Error ? err.message : 'Submission failed';
-    return NextResponse.json({ error: message }, { status: 400 });
+    console.error('Task submit error:', err);
+    return NextResponse.json({ error: 'Submission failed' }, { status: 400 });
   } finally {
     client.release();
   }
