@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { GoogleAuthProvider, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebaseClient';
 import { UserRole } from '@/lib/roles';
 
@@ -61,6 +61,54 @@ export default function RegisterClient() {
     }
   }
 
+  async function handleGoogleRegister() {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    setOk(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      const credential = await signInWithPopup(auth, provider);
+      const idToken = await credential.user.getIdToken();
+      const displayName = credential.user.displayName ?? name;
+      const emailAddress = credential.user.email ?? email;
+      if (!displayName) {
+        throw new Error('Google account is missing a display name.');
+      }
+      if (!emailAddress) {
+        throw new Error('Google account is missing an email.');
+      }
+      const registerRes = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, role, displayName, email: emailAddress }),
+      });
+      if (!registerRes.ok) {
+        const detail = await registerRes.json().catch(() => ({}));
+        throw new Error(detail?.error ?? 'Registration failed.');
+      }
+      const sessionRes = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      if (!sessionRes.ok) {
+        const detail = await sessionRes.json().catch(() => ({}));
+        throw new Error(detail?.error ?? 'Unable to start session.');
+      }
+      setOk('Account created. Redirecting to your dashboard...');
+      setTimeout(() => {
+        if (role === 'student') router.replace('/student/dashboard');
+        else router.replace('/writer/dashboard');
+      }, 300);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Google sign-up failed';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6">
@@ -69,6 +117,21 @@ export default function RegisterClient() {
             <p className="text-xs uppercase tracking-widest text-emerald-600">EduLink Writers</p>
             <h1 className="text-2xl font-semibold">Create your account</h1>
             <p className="mt-1 text-sm text-[color:var(--muted)]">Join as a student or writer in minutes.</p>
+          </div>
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={handleGoogleRegister}
+              disabled={loading}
+              className="w-full rounded-full border border-emerald-200 bg-white px-4 py-2.5 font-semibold text-emerald-700 shadow-sm hover:border-emerald-300 disabled:opacity-60"
+            >
+              {loading ? 'Creating account...' : 'Continue with Google'}
+            </button>
+            <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-slate-400">
+              <span className="h-px flex-1 bg-slate-200" />
+              Or register with email
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
           </div>
           <form onSubmit={handleRegister} className="space-y-4" aria-busy={loading}>
             <label className="block">

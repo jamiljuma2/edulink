@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebaseClient';
 import type { UserRole } from '@/lib/roles';
 
@@ -64,6 +64,46 @@ export default function LoginPage() {
     }
   }
 
+  async function handleGoogleLogin() {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      const credential = await signInWithPopup(auth, provider);
+      const idToken = await credential.user.getIdToken();
+      const sessionRes = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      if (!sessionRes.ok) {
+        const detail = await sessionRes.json().catch(() => ({}));
+        throw new Error(detail?.error ?? 'Unable to start session.');
+      }
+      const sessionData = await sessionRes.json().catch(() => ({}));
+      const profile = sessionData?.profile ?? null;
+      if (!profile) {
+        const displayName = credential.user.displayName ?? credential.user.email ?? '';
+        setProfileName(displayName);
+        setProfileEmail(credential.user.email ?? '');
+        setProfileToken(idToken);
+        setNeedsProfile(true);
+        return;
+      }
+      const role = profile?.role ?? null;
+      if (role === 'student') router.replace('/student/dashboard');
+      else if (role === 'writer') router.replace('/writer/dashboard');
+      else router.replace('/admin/dashboard');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Google sign-in failed';
+      setError(message);
+      console.error('Google login error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6">
@@ -72,6 +112,21 @@ export default function LoginPage() {
             <p className="text-xs uppercase tracking-widest text-emerald-600">EduLink Writers</p>
             <h1 className="text-2xl font-semibold">Welcome back</h1>
             <p className="mt-1 text-sm text-[color:var(--muted)]">Sign in to manage assignments and payments.</p>
+          </div>
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full rounded-full border border-emerald-200 bg-white px-4 py-2.5 font-semibold text-emerald-700 shadow-sm hover:border-emerald-300 disabled:opacity-60"
+            >
+              {loading ? 'Signing you in...' : 'Continue with Google'}
+            </button>
+            <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-slate-400">
+              <span className="h-px flex-1 bg-slate-200" />
+              Or sign in with email
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
           </div>
           <form onSubmit={handleLogin} className="space-y-4" aria-busy={loading}>
             <label className="block">
