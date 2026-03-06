@@ -4,6 +4,47 @@ import { requireRole } from '@/lib/auth';
 import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { query } from '@/lib/db';
 
+type ProfileRow = {
+  id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  approval_status: string;
+  created_at: string;
+};
+
+type SubmissionRow = {
+  id: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  storage_path: string;
+  task_id: string;
+  writer_id: string;
+  tasks: {
+    id: string;
+    status: string;
+    assignments: {
+      id: string;
+      title: string;
+      student_id: string;
+      writer_id: string | null;
+    } | null;
+  } | null;
+};
+
+type PaymentRow = {
+  id: string;
+  user_id: string;
+  type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  reference: string | null;
+  meta: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export default async function AdminDashboard({ searchParams }: { searchParams?: any }) {
   await requireRole('admin');
   const user = await getServerFirebaseUser();
@@ -37,7 +78,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
 
   // Fetch all dashboard data in parallel
   const [pendingRes, pendingCountRes, submissionsRes, submissionsCountRes, paymentsRes, paymentsCountRes, withdrawalsRes, withdrawalsCountRes] = await Promise.all([
-    query(
+    query<ProfileRow>(
       `select id, email, display_name, role, approval_status, created_at
        from profiles
        where approval_status = 'pending'
@@ -46,7 +87,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
       []
     ),
     query<{ count: string }>("select count(*) from profiles where approval_status = 'pending'", []),
-    query(
+    query<SubmissionRow>(
       `select ts.id, ts.status, ts.notes, ts.created_at, ts.storage_path, ts.task_id, ts.writer_id,
               jsonb_build_object(
                 'id', t.id,
@@ -66,7 +107,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
       [pageSize, subFrom]
     ),
     query<{ count: string }>('select count(*) from task_submissions', []),
-    query(
+    query<PaymentRow>(
       `select id, user_id, type, amount, currency, status, reference, meta, created_at
        from transactions
        order by created_at desc
@@ -74,7 +115,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
       [pageSize, payFrom]
     ),
     query<{ count: string }>('select count(*) from transactions', []),
-    query(
+    query<PaymentRow>(
       `select id, user_id, type, amount, currency, status, reference, meta, created_at
        from transactions
        where type = 'payout'
