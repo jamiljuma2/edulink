@@ -1,12 +1,12 @@
 
 import StudentDashboardClient from '@/components/dashboards/StudentDashboardClient';
 import { requireRole } from '@/lib/auth';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 export default async function StudentDashboard({ searchParams }: { searchParams?: any }) {
   await requireRole('student');
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return null;
 
   // Await searchParams if it's a Promise, then use .get('page') for URLSearchParams, else fallback to object
@@ -25,14 +25,18 @@ export default async function StudentDashboard({ searchParams }: { searchParams?
   const to = from + pageSize - 1;
 
   // Fetch wallet and assignments in parallel
-  const [{ data: walletData }, { data: assignmentsData, count }] = await Promise.all([
-    supabase.from('wallets').select('balance').eq('user_id', user.id).maybeSingle(),
-    supabase.from('assignments').select('*', { count: 'exact' }).eq('student_id', user.id).order('created_at', { ascending: false }).range(from, to),
+  const [{ rows: walletRows }, { rows: assignmentsRows }, { rows: countRows }] = await Promise.all([
+    query('select balance from wallets where user_id = $1', [user.id]),
+    query(
+      'select * from assignments where student_id = $1 order by created_at desc limit $2 offset $3',
+      [user.id, pageSize, from]
+    ),
+    query<{ count: string }>('select count(*) from assignments where student_id = $1', [user.id]),
   ]);
 
-  const wallet = Number(walletData?.balance ?? 0);
-  const assignments = assignmentsData ?? [];
-  const totalAssignments = count ?? assignments.length;
+  const wallet = Number(walletRows[0]?.balance ?? 0);
+  const assignments = assignmentsRows ?? [];
+  const totalAssignments = Number(countRows[0]?.count ?? assignments.length);
 
   return <StudentDashboardClient wallet={wallet} assignments={assignments} totalAssignments={totalAssignments} page={page} pageSize={pageSize} />;
 }

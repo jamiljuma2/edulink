@@ -1,16 +1,26 @@
 import { redirect } from 'next/navigation';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 import type { UserRole } from '@/lib/roles';
 
+export type ProfileRow = {
+  id: string;
+  role: UserRole;
+  approval_status: string;
+};
+
+export async function getProfileById(userId: string): Promise<ProfileRow | null> {
+  const { rows } = await query<ProfileRow>(
+    'select id, role, approval_status from profiles where id = $1',
+    [userId]
+  );
+  return rows[0] ?? null;
+}
+
 export async function getServerUserAndProfile() {
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return { user: null, profile: null } as const;
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, role, approval_status')
-    .eq('id', user.id)
-    .single();
+  const profile = await getProfileById(user.id);
   return { user, profile } as const;
 }
 

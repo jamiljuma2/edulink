@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { supabaseClient } from '@/lib/supabaseClient';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { getFirebaseAuth } from '@/lib/firebaseClient';
 import { UserRole } from '@/lib/roles';
 
 export default function RegisterClient() {
@@ -17,7 +18,7 @@ export default function RegisterClient() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  const supabase = useMemo(() => supabaseClient(), []);
+  const auth = useMemo(() => getFirebaseAuth(), []);
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -26,29 +27,32 @@ export default function RegisterClient() {
     setError(null);
     setOk(null);
     try {
-      const { data, error: signErr } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            display_name: name,
-            role,
-          },
-        },
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(credential.user, { displayName: name });
+      const idToken = await credential.user.getIdToken(true);
+      const registerRes = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, role, displayName: name, email }),
       });
-      if (signErr) throw signErr;
-      const user = data.user;
-      if (!user) throw new Error('No user created');
-      if (data.session) {
-        const { error: profErr } = await supabase
-          .from('profiles')
-          .insert({ id: user.id, email, display_name: name, role, approval_status: 'approved' });
-        if (profErr) throw profErr;
-        setOk('Account created. Redirecting to login...');
-      } else {
-        setOk('Check your email to confirm your account. Then log in to complete setup.');
+      if (!registerRes.ok) {
+        const detail = await registerRes.json().catch(() => ({}));
+        throw new Error(detail?.error ?? 'Registration failed.');
       }
-      setTimeout(() => router.replace('/login'), 300);
+      const sessionRes = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      if (!sessionRes.ok) {
+        const detail = await sessionRes.json().catch(() => ({}));
+        throw new Error(detail?.error ?? 'Unable to start session.');
+      }
+      setOk('Account created. Redirecting to your dashboard...');
+      setTimeout(() => {
+        if (role === 'student') router.replace('/student/dashboard');
+        else router.replace('/writer/dashboard');
+      }, 300);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Registration failed';
       setError(message);

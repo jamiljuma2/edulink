@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
-import { createSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { getClient, query } from '@/lib/db';
 
 export async function POST(req: Request) {
-  const supabase = await createSupabaseServer();
-  const admin = createSupabaseAdmin();
   const { orderId } = await req.json();
   if (!orderId) return NextResponse.json({ error: 'orderId required' }, { status: 400 });
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const paypalClientId = process.env.PAYPAL_CLIENT_ID;
@@ -46,31 +44,53 @@ export async function POST(req: Request) {
 
   const captureJson = await captureRes.json().catch(() => ({}));
   if (!captureRes.ok) {
-    await supabase.from('transactions').update({ status: 'failed', meta: { provider: 'paypal', capture: captureJson } }).eq('reference', orderId);
+    await query(
+      'update transactions set status = $1, meta = $2 where reference = $3',
+      ['failed', { provider: 'paypal', capture: captureJson }, orderId]
+    );
     return NextResponse.json({ error: captureJson?.message ?? 'PayPal capture failed' }, { status: 400 });
   }
 
-  const { data: txn } = await admin
-    .from('transactions')
-    .select('*')
-    .eq('reference', orderId)
-    .eq('user_id', user.id)
-    .single();
-
-  if (!txn) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
-
-  await admin
-    .from('transactions')
-    .update({ status: 'completed', meta: { provider: 'paypal', capture: captureJson } })
-    .eq('id', txn.id);
-
-  const { data: wallet } = await admin.from('wallets').select('*').eq('user_id', txn.user_id).single();
-  const newBal = Number(wallet?.balance ?? 0) + Number(txn.amount ?? 0);
-  await admin.from('wallets').upsert({
-    user_id: txn.user_id,
-    balance: newBal,
-    currency: wallet?.currency ?? txn.currency ?? 'USD',
-  });
-
-  return NextResponse.json({ ok: true });
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const txnRes = await client.query(
+      'select * from transactions where reference = $1 and user_id = $2',
+      [orderId, user.id]
+    );
+    const txn = txnRes.rows[0];
+    if (!txn) {
+      await client.query('ROLLBACK');
+      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+    }
+    await client.query(
+      'update transactions set status = $1, meta = $2 where id = $3',
+      ['success', { provider: 'paypal', capture: captureJson }, txn.id]
+    );
+    const walletRes = await client.query(
+      'select * from wallets where user_id = $1',
+      [txn.user_id]
+    );
+    const wallet = walletRes.rows[0];
+    const newBal = Number(wallet?.balance ?? 0) + Number(txn.amount ?? 0);
+    if (wallet) {
+      await client.query(
+        'update wallets set balance = $1, currency = $2, updated_at = now() where user_id = $3',
+        [newBal, wallet?.currency ?? txn.currency ?? 'USD', txn.user_id]
+      );
+    } else {
+      await client.query(
+        'insert into wallets (user_id, balance, currency) values ($1, $2, $3)',
+        [txn.user_id, newBal, txn.currency ?? 'USD']
+      );
+    }
+    await client.query('COMMIT');
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    await client.query('ROLLBACK');
+    const message = err instanceof Error ? err.message : 'Capture failed';
+    return NextResponse.json({ error: message }, { status: 400 });
+  } finally {
+    client.release();
+  }
 }

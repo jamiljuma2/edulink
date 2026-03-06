@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { createSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { getClient, query } from '@/lib/db';
 
 export async function POST(req: Request) {
-
-  const admin = createSupabaseAdmin();
   const raw = await req.text();
   // Log all headers for debugging
   const headersObj: Record<string, string> = {};
@@ -35,7 +33,7 @@ export async function POST(req: Request) {
     rawStatus.includes('completed') ||
     eventStatus.includes('success') ||
     eventStatus.includes('completed');
-  const status = isSuccess ? 'completed' : rawStatus || 'pending';
+  const status = isSuccess ? 'success' : rawStatus || 'pending';
   const transactionId = data?.transactionId ?? data?.transaction_id;
 
   // LOG: Decoded payload and transactionId
@@ -47,38 +45,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
-  const { data: txn, error: txnErr } = await admin.from('transactions').select('*').eq('reference', transactionId).single();
-  if (txnErr) console.error('[WEBHOOK] Transaction lookup error:', txnErr);
+  const { rows: txnRows } = await query('select * from transactions where reference = $1', [transactionId]);
+  const txn = txnRows[0];
   if (!txn) {
     console.warn('[WEBHOOK] No transaction found for reference:', transactionId);
     return NextResponse.json({ ok: true });
   }
 
-  const wasCompleted = String(txn.status ?? '').toLowerCase() === 'completed';
-  const shouldCredit = status === 'completed' && !wasCompleted;
+  const wasSuccess = String(txn.status ?? '').toLowerCase() === 'success';
+  const shouldCredit = status === 'success' && !wasSuccess;
 
-  if (!wasCompleted || status !== txn.status) {
-    const { error: updateErr } = await admin.from('transactions').update({ status }).eq('id', txn.id);
-    if (updateErr) console.error('[WEBHOOK] Transaction status update error:', updateErr);
-    else console.log('[WEBHOOK] Transaction status updated:', txn.id, status);
+  if (!wasSuccess || status !== txn.status) {
+    await query('update transactions set status = $1 where id = $2', [status, txn.id]);
+    console.log('[WEBHOOK] Transaction status updated:', txn.id, status);
   }
 
   if (shouldCredit) {
-    const { data: w, error: wErr } = await admin.from('wallets').select('*').eq('user_id', txn.user_id).single();
-    if (wErr) console.error('[WEBHOOK] Wallet lookup error:', wErr);
-    const newBal = Number(w?.balance ?? 0) + Number(txn.amount ?? 0);
-    if (txn.type === 'topup') {
-      const { error: upsertErr } = await admin.from('wallets').upsert({ user_id: txn.user_id, balance: newBal, currency: w?.currency ?? 'KES' });
-      if (upsertErr) console.error('[WEBHOOK] Wallet upsert error:', upsertErr);
-      else console.log('[WEBHOOK] Wallet updated:', txn.user_id, newBal);
-    }
-    if (txn.type === 'subscription' && txn.meta?.subscription_id) {
-      const { error: subErr } = await admin
-        .from('subscriptions')
-        .update({ active: true, starts_at: new Date().toISOString() })
-        .eq('id', txn.meta.subscription_id);
-      if (subErr) console.error('[WEBHOOK] Subscription update error:', subErr);
-      else console.log('[WEBHOOK] Subscription activated:', txn.meta.subscription_id);
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const walletRes = await client.query('select * from wallets where user_id = $1', [txn.user_id]);
+      const wallet = walletRes.rows[0];
+      const newBal = Number(wallet?.balance ?? 0) + Number(txn.amount ?? 0);
+      if (txn.type === 'topup') {
+        if (wallet) {
+          await client.query(
+            'update wallets set balance = $1, currency = $2, updated_at = now() where user_id = $3',
+            [newBal, wallet?.currency ?? 'KES', txn.user_id]
+          );
+        } else {
+          await client.query(
+            'insert into wallets (user_id, balance, currency) values ($1, $2, $3)',
+            [txn.user_id, newBal, 'KES']
+          );
+        }
+        console.log('[WEBHOOK] Wallet updated:', txn.user_id, newBal);
+      }
+      if (txn.type === 'subscription' && txn.meta?.subscription_id) {
+        await client.query(
+          'update subscriptions set active = true, starts_at = now() where id = $1',
+          [txn.meta.subscription_id]
+        );
+        console.log('[WEBHOOK] Subscription activated:', txn.meta.subscription_id);
+      }
+      await client.query('COMMIT');
+    } catch (err: unknown) {
+      await client.query('ROLLBACK');
+      console.error('[WEBHOOK] Wallet/subscription update error:', err);
+    } finally {
+      client.release();
     }
   }
   return NextResponse.json({ ok: true });

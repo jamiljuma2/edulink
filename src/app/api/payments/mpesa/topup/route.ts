@@ -1,20 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
-
-export const runtime = 'edge';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 export async function POST(req: Request) {
-  const supabase = await createSupabaseServer();
   const { amount, phone } = await req.json();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
-  if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
+  const { rows: profileRows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = profileRows[0];
+  if (!profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'student') return NextResponse.json({ error: 'Student role required' }, { status: 403 });
 
@@ -44,16 +42,11 @@ export async function POST(req: Request) {
   }
 
   const transactionId = payload?.data?.transactionId ?? payload?.data?.transaction_id;
-  const { error: tErr } = await supabase.from('transactions').insert({
-    user_id: user.id,
-    type: 'topup',
-    amount,
-    currency: 'KES',
-    status: 'pending',
-    reference: transactionId,
-    meta: payload,
-  });
-  if (tErr) return NextResponse.json({ error: tErr.message }, { status: 400 });
+  await query(
+    `insert into transactions (user_id, type, amount, currency, status, reference, meta)
+     values ($1, $2, $3, $4, $5, $6, $7)`,
+    [user.id, 'topup', amount, 'KES', 'pending', transactionId, payload]
+  );
 
   return NextResponse.json({ ok: true, lipana: payload, reference: transactionId });
 }

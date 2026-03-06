@@ -1,50 +1,52 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
-import { createSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { getClient, query } from '@/lib/db';
 
 export async function POST(req: Request) {
-  const supabase = await createSupabaseServer();
   const { submissionId, decision, notes } = await req.json();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
-  if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
+  const { rows: profileRows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = profileRows[0];
+  if (!profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'admin') return NextResponse.json({ error: 'Admin role required' }, { status: 403 });
 
-  const admin = createSupabaseAdmin();
-  const { data: submission, error } = await admin
-    .from('task_submissions')
-    .select('*')
-    .eq('id', submissionId)
-    .single();
-  if (error || !submission) return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
-
-  const { data: task } = await admin
-    .from('tasks')
-    .select('id, assignment_id')
-    .eq('id', submission.task_id)
-    .single();
-
-  const status = decision === 'approve' ? 'approved' : 'rejected';
-  await admin.from('task_submissions').update({ status, notes }).eq('id', submissionId);
-
-  if (status === 'approved') {
-    await admin.from('tasks').update({ status: 'approved' }).eq('id', submission.task_id);
-    if (task?.assignment_id) {
-      await admin.from('assignments').update({ status: 'completed' }).eq('id', task.assignment_id);
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const submissionRes = await client.query('select * from task_submissions where id = $1', [submissionId]);
+    const submission = submissionRes.rows[0];
+    if (!submission) {
+      await client.query('ROLLBACK');
+      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
     }
-  } else {
-    await admin.from('tasks').update({ status: 'rejected' }).eq('id', submission.task_id);
-    if (task?.assignment_id) {
-      await admin.from('assignments').update({ status: 'in_progress' }).eq('id', task.assignment_id);
+    const taskRes = await client.query('select id, assignment_id from tasks where id = $1', [submission.task_id]);
+    const task = taskRes.rows[0];
+    const status = decision === 'approve' ? 'approved' : 'rejected';
+    await client.query('update task_submissions set status = $1, notes = $2 where id = $3', [status, notes ?? null, submissionId]);
+    if (status === 'approved') {
+      await client.query('update tasks set status = $1 where id = $2', ['approved', submission.task_id]);
+      if (task?.assignment_id) {
+        await client.query('update assignments set status = $1 where id = $2', ['completed', task.assignment_id]);
+      }
+    } else {
+      await client.query('update tasks set status = $1 where id = $2', ['rejected', submission.task_id]);
+      if (task?.assignment_id) {
+        await client.query('update assignments set status = $1 where id = $2', ['in_progress', task.assignment_id]);
+      }
     }
+    await client.query('COMMIT');
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    await client.query('ROLLBACK');
+    const message = err instanceof Error ? err.message : 'Decision failed';
+    return NextResponse.json({ error: message }, { status: 400 });
+  } finally {
+    client.release();
   }
-
-  return NextResponse.json({ ok: true });
 }

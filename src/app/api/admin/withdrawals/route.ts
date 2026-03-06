@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
-import { createSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 export async function GET(req: Request) {
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
-  if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
+  const { rows: profileRows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = profileRows[0];
+  if (!profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'admin') return NextResponse.json({ error: 'Admin role required' }, { status: 403 });
 
@@ -23,14 +22,14 @@ export async function GET(req: Request) {
   const offset = Number.isFinite(offsetParam) ? Math.max(offsetParam, 0) : 0;
   const to = offset + limit - 1;
 
-  const admin = createSupabaseAdmin();
-  const { data, error } = await admin
-    .from('transactions')
-    .select('id, user_id, type, amount, currency, status, reference, meta, created_at')
-    .eq('type', 'payout')
-    .order('created_at', { ascending: false })
-    .range(offset, to);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const { rows } = await query(
+    `select id, user_id, type, amount, currency, status, reference, meta, created_at
+     from transactions
+     where type = 'payout'
+     order by created_at desc
+     limit $1 offset $2`,
+    [limit, offset]
+  );
 
-  return NextResponse.json({ withdrawals: data ?? [] });
+  return NextResponse.json({ withdrawals: rows ?? [] });
 }

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabaseClient } from '@/lib/supabaseClient';
+import { onAuthStateChanged } from 'firebase/auth';
+import { getFirebaseAuth, getFirebaseStorage } from '@/lib/firebaseClient';
+import { ref, uploadBytes } from 'firebase/storage';
 import axios from 'axios';
 import { Wallet, UploadCloud, FileText, Bell } from 'lucide-react';
 import DashboardShell, { NavItem } from '@/components/layouts/DashboardShell';
@@ -44,7 +46,8 @@ export default function StudentDashboardClient({ wallet: walletProp, assignments
     'Study Skills',
     'Technical Report Writing',
   ];
-  const supabase = useMemo(() => supabaseClient(), []);
+  const auth = useMemo(() => getFirebaseAuth(), []);
+  const storage = useMemo(() => getFirebaseStorage(), []);
   const [wallet, setWallet] = useState<number>(walletProp);
   const [amount, setAmount] = useState(5);
   const [phone, setPhone] = useState('');
@@ -68,13 +71,13 @@ export default function StudentDashboardClient({ wallet: walletProp, assignments
       useEffect(() => {
         setWallet(walletProp);
       }, [walletProp]);
-    // Load userId from supabase on mount
+    // Load userId from Firebase on mount
     useEffect(() => {
-      (async () => {
-        const { data } = await supabase.auth.getUser();
-        setUserId(data.user?.id ?? null);
-      })();
-    }, [supabase]);
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        setUserId(user?.uid ?? null);
+      });
+      return () => unsubscribe();
+    }, [auth]);
   const pollingRef = useRef<number | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
   const lastWalletRef = useRef<number>(0);
@@ -267,10 +270,12 @@ export default function StudentDashboardClient({ wallet: walletProp, assignments
     }
     if (uploading) return;
     setUploading(true);
-    const path = `${userId}/${crypto.randomUUID()}-${file.name}`;
-    const { error: upErr } = await supabase.storage.from('assignments').upload(path, file);
-    if (upErr) {
-      setMessage(upErr.message);
+    const path = `assignments/${userId}/${crypto.randomUUID()}-${file.name}`;
+    try {
+      await uploadBytes(ref(storage, path), file);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Upload failed.';
+      setMessage(message);
       setUploading(false);
       return;
     }

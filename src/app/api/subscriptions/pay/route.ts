@@ -1,34 +1,33 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 import { SUBSCRIPTION_PLANS } from '@/lib/roles';
 import { convertUsdToKes, getUsdToKesRate } from '@/lib/exchangeRates';
 
 export async function POST(req: Request) {
-  const supabase = await createSupabaseServer();
   const { subscriptionId, phone } = await req.json();
   if (!subscriptionId || !phone) {
     return NextResponse.json({ error: 'subscriptionId and phone required' }, { status: 400 });
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
-  if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
+  const { rows: profileRows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = profileRows[0];
+  if (!profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'writer') return NextResponse.json({ error: 'Writer role required' }, { status: 403 });
 
-  const { data: sub, error: sErr } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('id', subscriptionId)
-    .eq('writer_id', user.id)
-    .single();
-  if (sErr || !sub) return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
+  const { rows: subRows } = await query(
+    'select * from subscriptions where id = $1 and writer_id = $2',
+    [subscriptionId, user.id]
+  );
+  const sub = subRows[0];
+  if (!sub) return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
 
   const conf = SUBSCRIPTION_PLANS[sub.plan as keyof typeof SUBSCRIPTION_PLANS];
   if (!conf) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
@@ -39,19 +38,14 @@ export async function POST(req: Request) {
   const lipanaKey = process.env.LIPANA_SECRET_KEY;
   if (!lipanaKey) return NextResponse.json({ error: 'Lipana secret key missing' }, { status: 500 });
 
-  const { data: txn, error: tErr } = await supabase
-    .from('transactions')
-    .insert({
-      user_id: user.id,
-      type: 'subscription',
-      amount,
-      currency: 'KES',
-      status: 'pending',
-      meta: { subscription_id: subscriptionId, fx: { usd_to_kes: rate, usd_amount: conf.price } },
-    })
-    .select('*')
-    .single();
-  if (tErr) return NextResponse.json({ error: tErr.message }, { status: 400 });
+  const { rows: txnRows } = await query(
+    `insert into transactions (user_id, type, amount, currency, status, meta)
+     values ($1, $2, $3, $4, $5, $6)
+     returning *`,
+    [user.id, 'subscription', amount, 'KES', 'pending', { subscription_id: subscriptionId, fx: { usd_to_kes: rate, usd_amount: conf.price } }]
+  );
+  const txn = txnRows[0];
+  if (!txn) return NextResponse.json({ error: 'Failed to create transaction' }, { status: 400 });
 
   const res = await fetch('https://api.lipana.dev/v1/transactions/push-stk', {
     method: 'POST',
@@ -68,7 +62,10 @@ export async function POST(req: Request) {
   }
 
   const transactionId = payload?.data?.transactionId ?? payload?.data?.transaction_id;
-  await supabase.from('transactions').update({ reference: transactionId, meta: { subscription_id: subscriptionId, lipana: payload } }).eq('id', txn.id);
+  await query(
+    'update transactions set reference = $1, meta = $2 where id = $3',
+    [transactionId, { subscription_id: subscriptionId, lipana: payload }, txn.id]
+  );
 
   return NextResponse.json({ ok: true, lipana: payload });
 }

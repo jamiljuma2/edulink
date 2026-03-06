@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { onAuthStateChanged } from 'firebase/auth';
+import { ref, uploadBytes } from 'firebase/storage';
 import { SUBSCRIPTION_PLANS, SubscriptionPlan } from '@/lib/roles';
-import { supabaseClient } from '@/lib/supabaseClient';
+import { getFirebaseAuth, getFirebaseStorage } from '@/lib/firebaseClient';
 import { FileCheck, Briefcase, Wallet, Bell } from 'lucide-react';
 import DashboardShell, { NavItem } from '@/components/layouts/DashboardShell';
 
@@ -55,7 +57,8 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
       { label: 'Assignments', icon: FileCheck },
       { label: 'Subscriptions', icon: Wallet },
     ];
-  const supabase = useMemo(() => supabaseClient(), []);
+  const auth = useMemo(() => getFirebaseAuth(), []);
+  const storage = useMemo(() => getFirebaseStorage(), []);
   const [activePlan, setActivePlan] = useState<string | null>(null);
   const [tasksPerDay, setTasksPerDay] = useState<number>(0);
   const [tasksToday, setTasksToday] = useState<number>(0);
@@ -161,12 +164,14 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
   }
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      setUserId(data.user?.id ?? null);
-      await Promise.all([loadSummary(), loadOpenAssignments(), loadMyTasks(), loadSubmissions(), loadEarnings()]);
-    })();
-  }, [supabase]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user?.uid ?? null);
+    });
+    Promise.all([loadSummary(), loadOpenAssignments(), loadMyTasks(), loadSubmissions(), loadEarnings()]).catch(() => {
+      // Errors are handled in the individual loaders.
+    });
+    return () => unsubscribe();
+  }, [auth]);
 
   async function subscribe(plan: SubscriptionPlan) {
     const { data } = await axios.post('/api/subscriptions/checkout', { plan });
@@ -244,10 +249,12 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
       return;
     }
     setSubmittingTaskId(taskId);
-    const path = `${userId}/${taskId}/${crypto.randomUUID()}-${file.name}`;
-    const { error: upErr } = await supabase.storage.from('submissions').upload(path, file);
-    if (upErr) {
-      setMessage(upErr.message);
+    const path = `submissions/${userId}/${taskId}/${crypto.randomUUID()}-${file.name}`;
+    try {
+      await uploadBytes(ref(storage, path), file);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Upload failed.';
+      setMessage(message);
       setSubmittingTaskId(null);
       return;
     }

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { getFirebaseUserFromRequest } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 const PROTECTED_PREFIXES = ['/student', '/writer', '/admin'];
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -57,33 +58,20 @@ export async function proxy(request: NextRequest) {
   if (!isProtected) return NextResponse.next();
 
   const response = NextResponse.next();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getFirebaseUserFromRequest(request);
   if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
+  const { rows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = rows[0];
 
-  if (error || !profile) {
+  if (!profile) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

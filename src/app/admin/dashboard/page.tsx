@@ -1,12 +1,12 @@
 
 import AdminDashboardClient from '@/components/dashboards/AdminDashboardClient';
 import { requireRole } from '@/lib/auth';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 export default async function AdminDashboard({ searchParams }: { searchParams?: any }) {
   await requireRole('admin');
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return null;
 
   // Await searchParams if it's a Promise, then use .get for URLSearchParams, else fallback to object
@@ -36,25 +36,63 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
   const withTo = withFrom + pageSize - 1;
 
   // Fetch all dashboard data in parallel
-  const [pendingRes, submissionsRes, paymentsRes, withdrawalsRes] = await Promise.all([
-    supabase.from('profiles').select('id, email, display_name, role, approval_status, created_at', { count: 'exact' }).eq('approval_status', 'pending').order('created_at', { ascending: true }).range(0, 9),
-    supabase.from('task_submissions').select('id, status, notes, created_at, storage_path, task_id, writer_id, tasks:task_id!inner (id, status, assignments:assignment_id (id, title, student_id, writer_id))', { count: 'exact' }).order('created_at', { ascending: false }).range(subFrom, subTo),
-    supabase.from('transactions').select('id, user_id, type, amount, currency, status, reference, meta, created_at', { count: 'exact' }).order('created_at', { ascending: false }).range(payFrom, payTo),
-    supabase.from('transactions').select('id, user_id, type, amount, currency, status, reference, meta, created_at', { count: 'exact' }).eq('type', 'payout').order('created_at', { ascending: false }).range(withFrom, withTo),
+  const [pendingRes, pendingCountRes, submissionsRes, submissionsCountRes, paymentsRes, paymentsCountRes, withdrawalsRes, withdrawalsCountRes] = await Promise.all([
+    query(
+      `select id, email, display_name, role, approval_status, created_at
+       from profiles
+       where approval_status = 'pending'
+       order by created_at asc
+       limit 10`,
+      []
+    ),
+    query<{ count: string }>("select count(*) from profiles where approval_status = 'pending'", []),
+    query(
+      `select ts.id, ts.status, ts.notes, ts.created_at, ts.storage_path, ts.task_id, ts.writer_id,
+              jsonb_build_object(
+                'id', t.id,
+                'status', t.status,
+                'assignments', jsonb_build_object(
+                  'id', a.id,
+                  'title', a.title,
+                  'student_id', a.student_id,
+                  'writer_id', a.writer_id
+                )
+              ) as tasks
+       from task_submissions ts
+       left join tasks t on t.id = ts.task_id
+       left join assignments a on a.id = t.assignment_id
+       order by ts.created_at desc
+       limit $1 offset $2`,
+      [pageSize, subFrom]
+    ),
+    query<{ count: string }>('select count(*) from task_submissions', []),
+    query(
+      `select id, user_id, type, amount, currency, status, reference, meta, created_at
+       from transactions
+       order by created_at desc
+       limit $1 offset $2`,
+      [pageSize, payFrom]
+    ),
+    query<{ count: string }>('select count(*) from transactions', []),
+    query(
+      `select id, user_id, type, amount, currency, status, reference, meta, created_at
+       from transactions
+       where type = 'payout'
+       order by created_at desc
+       limit $1 offset $2`,
+      [pageSize, withFrom]
+    ),
+    query<{ count: string }>("select count(*) from transactions where type = 'payout'", []),
   ]);
 
-  const pending = pendingRes.data ?? [];
-  const totalPending = pendingRes.count ?? pending.length;
-  // Map tasks array to single object for each submission (if needed)
-  const submissions = (submissionsRes.data ?? []).map((s: any) => ({
-    ...s,
-    tasks: Array.isArray(s.tasks) ? s.tasks[0] : s.tasks
-  }));
-  const totalSubmissions = submissionsRes.count ?? submissions.length;
-  const payments = paymentsRes.data ?? [];
-  const totalPayments = paymentsRes.count ?? payments.length;
-  const withdrawals = withdrawalsRes.data ?? [];
-  const totalWithdrawals = withdrawalsRes.count ?? withdrawals.length;
+  const pending = pendingRes.rows ?? [];
+  const totalPending = Number(pendingCountRes.rows[0]?.count ?? pending.length);
+  const submissions = submissionsRes.rows ?? [];
+  const totalSubmissions = Number(submissionsCountRes.rows[0]?.count ?? submissions.length);
+  const payments = paymentsRes.rows ?? [];
+  const totalPayments = Number(paymentsCountRes.rows[0]?.count ?? payments.length);
+  const withdrawals = withdrawalsRes.rows ?? [];
+  const totalWithdrawals = Number(withdrawalsCountRes.rows[0]?.count ?? withdrawals.length);
 
   return <AdminDashboardClient
     pending={pending}

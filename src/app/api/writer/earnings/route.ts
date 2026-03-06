@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 const DEFAULT_TASK_RATE_KES = Number(
   process.env.WRITER_TASK_EARNINGS_KES ??
@@ -8,26 +9,26 @@ const DEFAULT_TASK_RATE_KES = Number(
 );
 
 export async function GET() {
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
-  if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
+  const { rows: profileRows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = profileRows[0];
+  if (!profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'writer') return NextResponse.json({ error: 'Writer role required' }, { status: 403 });
 
-  const { data: tasks, error: tErr } = await supabase
-    .from('tasks')
-    .select('id, created_at, assignments:assignment_id (title)')
-    .eq('writer_id', user.id)
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false });
-  if (tErr) return NextResponse.json({ error: tErr.message }, { status: 400 });
+  const { rows: tasks } = await query(
+    `select t.id, t.created_at, jsonb_build_object('title', a.title) as assignments
+     from tasks t
+     left join assignments a on a.id = t.assignment_id
+     where t.writer_id = $1 and t.status = 'approved'
+     order by t.created_at desc`,
+    [user.id]
+  );
 
   const approvedTasks = tasks?.length ?? 0;
   const taskRate = Number.isFinite(DEFAULT_TASK_RATE_KES) ? DEFAULT_TASK_RATE_KES : 0;

@@ -1,26 +1,33 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 export async function GET() {
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
-  if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
+  const { rows: profileRows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = profileRows[0];
+  if (!profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'writer') return NextResponse.json({ error: 'Writer role required' }, { status: 403 });
 
-  const { data, error } = await supabase
-    .from('tasks')
-    .select('*, assignments(*)')
-    .eq('writer_id', user.id)
-    .order('created_at', { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const { rows } = await query(
+    `select t.*, jsonb_build_object(
+        'id', a.id,
+        'title', a.title,
+        'description', a.description,
+        'due_date', a.due_date
+      ) as assignments
+     from tasks t
+     left join assignments a on a.id = t.assignment_id
+     where t.writer_id = $1
+     order by t.created_at desc`,
+    [user.id]
+  );
 
-  return NextResponse.json({ tasks: data ?? [] });
+  return NextResponse.json({ tasks: rows ?? [] });
 }

@@ -1,7 +1,8 @@
 "use client";
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabaseClient } from '@/lib/supabaseClient';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { getFirebaseAuth } from '@/lib/firebaseClient';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -9,7 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = useMemo(() => supabaseClient(), []);
+  const auth = useMemo(() => getFirebaseAuth(), []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -17,38 +18,26 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) throw err;
-      // Fetch profile to route by role; create if missing
-      type Profile = { id: string; role: string; approval_status: string };
-      let prof: Profile | null = null;
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id, role, approval_status')
-        .eq('id', data.user?.id)
-        .maybeSingle();
-      if (!existing) {
-        const meta = data.user?.user_metadata ?? {};
-        if (data.user?.id && meta.role) {
-          const { error: cErr } = await supabase.from('profiles').insert({
-            id: data.user.id,
-            email: data.user.email,
-            display_name: meta.display_name ?? data.user.email,
-            role: meta.role,
-            approval_status: 'approved',
-          });
-          if (cErr) throw cErr;
-          // Approval check removed; proceed to dashboard
-        } else {
-          throw new Error('Profile missing and user metadata incomplete.');
-        }
-      } else {
-        prof = existing;
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await credential.user.getIdToken(true);
+      const sessionRes = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      if (!sessionRes.ok) {
+        const detail = await sessionRes.json().catch(() => ({}));
+        throw new Error(detail?.error ?? 'Unable to start session.');
       }
-      if (!prof) throw new Error('Profile not found');
-      // Approval check removed
-      if (prof.role === 'student') router.replace('/student/dashboard');
-      else if (prof.role === 'writer') router.replace('/writer/dashboard');
+      const profileRes = await fetch('/api/auth/profile');
+      if (!profileRes.ok) {
+        const detail = await profileRes.json().catch(() => ({}));
+        throw new Error(detail?.error ?? 'Profile not found.');
+      }
+      const profile = await profileRes.json();
+      const role = profile?.profile?.role ?? null;
+      if (role === 'student') router.replace('/student/dashboard');
+      else if (role === 'writer') router.replace('/writer/dashboard');
       else router.replace('/admin/dashboard');
     } catch (err: unknown) {
       const message =

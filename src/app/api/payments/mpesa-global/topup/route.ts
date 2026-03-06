@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 export async function POST(req: Request) {
-  const supabase = await createSupabaseServer();
   const { amount } = await req.json();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
-  if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
+  const { rows: profileRows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = profileRows[0];
+  if (!profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'student') return NextResponse.json({ error: 'Student role required' }, { status: 403 });
   if (!amount || Number(amount) <= 0) return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
@@ -47,12 +47,14 @@ export async function POST(req: Request) {
     }, { status: 400 });
   }
 
-  const { data: txn, error: tErr } = await supabase
-    .from('transactions')
-    .insert({ user_id: user.id, type: 'topup', amount, currency: 'USD', status: 'pending', meta: { provider: 'paypal' } })
-    .select('*')
-    .single();
-  if (tErr) return NextResponse.json({ error: tErr.message }, { status: 400 });
+  const { rows: txnRows } = await query(
+    `insert into transactions (user_id, type, amount, currency, status, meta)
+     values ($1, $2, $3, $4, $5, $6)
+     returning *`,
+    [user.id, 'topup', amount, 'USD', 'pending', { provider: 'paypal' }]
+  );
+  const txn = txnRows[0];
+  if (!txn) return NextResponse.json({ error: 'Failed to create transaction' }, { status: 400 });
 
   const orderRes = await fetch(`${paypalBase}/v2/checkout/orders`, {
     method: 'POST',
@@ -88,10 +90,10 @@ export async function POST(req: Request) {
     ? orderJson.links.find((l: { rel: string }) => l.rel === 'approve')?.href
     : null;
 
-  await supabase
-    .from('transactions')
-    .update({ reference: orderJson.id, meta: { provider: 'paypal', order: orderJson } })
-    .eq('id', txn.id);
+  await query(
+    'update transactions set reference = $1, meta = $2 where id = $3',
+    [orderJson.id, { provider: 'paypal', order: orderJson }, txn.id]
+  );
 
   if (!approvalUrl) return NextResponse.json({ error: 'PayPal approval link missing' }, { status: 400 });
   return NextResponse.json({ checkoutUrl: approvalUrl });

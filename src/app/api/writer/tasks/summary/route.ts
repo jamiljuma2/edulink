@@ -1,26 +1,25 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 export async function GET() {
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('role, approval_status')
-    .eq('id', user.id)
-    .single();
-  if (pErr || !profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
+  const { rows: profileRows } = await query<{ role: string; approval_status: string }>(
+    'select role, approval_status from profiles where id = $1',
+    [user.id]
+  );
+  const profile = profileRows[0];
+  if (!profile) return NextResponse.json({ error: 'Profile missing' }, { status: 403 });
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'writer') return NextResponse.json({ error: 'Writer role required' }, { status: 403 });
 
-  const { data: sub } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('writer_id', user.id)
-    .eq('active', true)
-    .single();
+  const { rows: subRows } = await query(
+    'select * from subscriptions where writer_id = $1 and active = true limit 1',
+    [user.id]
+  );
+  const sub = subRows[0];
 
   if (!sub) return NextResponse.json({ hasSubscription: false });
 
@@ -29,14 +28,11 @@ export async function GET() {
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
 
-  const { data: tasks } = await supabase
-    .from('tasks')
-    .select('id')
-    .eq('writer_id', user.id)
-    .gte('created_at', start.toISOString())
-    .lt('created_at', end.toISOString());
-
-  const tasksToday = tasks?.length ?? 0;
+  const { rows: taskRows } = await query<{ count: string }>(
+    'select count(*) from tasks where writer_id = $1 and created_at >= $2 and created_at < $3',
+    [user.id, start.toISOString(), end.toISOString()]
+  );
+  const tasksToday = Number(taskRows[0]?.count ?? 0);
   const tasksPerDay = Number(sub.tasks_per_day ?? 0);
   const unlimited = tasksPerDay === 0;
   const remaining = unlimited ? null : Math.max(tasksPerDay - tasksToday, 0);

@@ -1,12 +1,12 @@
 
 import WriterDashboardClient from '@/components/dashboards/WriterDashboardClient';
 import { requireRole } from '@/lib/auth';
-import { createSupabaseServer } from '@/lib/supabaseServer';
+import { getServerFirebaseUser } from '@/lib/firebaseAuth';
+import { query } from '@/lib/db';
 
 export default async function WriterDashboard({ searchParams }: { searchParams?: any }) {
   await requireRole('writer');
-  const supabase = await createSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerFirebaseUser();
   if (!user) return null;
 
   // Await searchParams if it's a Promise, then use .get('page') for URLSearchParams, else fallback to object
@@ -25,27 +25,54 @@ export default async function WriterDashboard({ searchParams }: { searchParams?:
   const to = from + pageSize - 1;
 
   // Fetch all dashboard data in parallel
-  const [summaryRes, openAssignmentsRes, myTasksRes, submissionsRes, earningsRes] = await Promise.all([
-    supabase.from('subscriptions').select('*').eq('writer_id', user.id).eq('active', true).maybeSingle(),
-    supabase.from('assignments').select('*', { count: 'exact' }).eq('status', 'open').order('created_at', { ascending: false }).range(from, to),
-    supabase.from('tasks').select('*, assignments(*)').eq('writer_id', user.id).order('created_at', { ascending: false }),
-    supabase.from('task_submissions').select('id, task_id, status, notes, created_at').eq('writer_id', user.id).order('created_at', { ascending: false }),
-    supabase.from('tasks').select('id, created_at, assignments:assignment_id (title)').eq('writer_id', user.id).eq('status', 'approved').order('created_at', { ascending: false }),
+  const [summaryRes, openAssignmentsRes, openCountRes, myTasksRes, submissionsRes, earningsRes] = await Promise.all([
+    query('select * from subscriptions where writer_id = $1 and active = true limit 1', [user.id]),
+    query(
+      "select * from assignments where status = 'open' order by created_at desc limit $1 offset $2",
+      [pageSize, from]
+    ),
+    query<{ count: string }>("select count(*) from assignments where status = 'open'", []),
+    query(
+      `select t.*, jsonb_build_object(
+          'id', a.id,
+          'title', a.title,
+          'description', a.description,
+          'due_date', a.due_date
+        ) as assignments
+       from tasks t
+       left join assignments a on a.id = t.assignment_id
+       where t.writer_id = $1
+       order by t.created_at desc`,
+      [user.id]
+    ),
+    query(
+      'select id, task_id, status, notes, created_at from task_submissions where writer_id = $1 order by created_at desc',
+      [user.id]
+    ),
+    query(
+      `select t.id, t.created_at, jsonb_build_object('title', a.title) as assignments
+       from tasks t
+       left join assignments a on a.id = t.assignment_id
+       where t.writer_id = $1 and t.status = 'approved'
+       order by t.created_at desc`,
+      [user.id]
+    ),
   ]);
 
   // Summary
-  const hasSubscription = !!summaryRes.data;
-  const plan = summaryRes.data?.plan ?? null;
-  const tasksPerDay = summaryRes.data?.tasks_per_day ?? 0;
+  const summaryRow = summaryRes.rows[0];
+  const hasSubscription = !!summaryRow;
+  const plan = summaryRow?.plan ?? null;
+  const tasksPerDay = summaryRow?.tasks_per_day ?? 0;
   // Open assignments
-  const openAssignments = openAssignmentsRes.data ?? [];
-  const totalOpenAssignments = openAssignmentsRes.count ?? openAssignments.length;
+  const openAssignments = openAssignmentsRes.rows ?? [];
+  const totalOpenAssignments = Number(openCountRes.rows[0]?.count ?? openAssignments.length);
   // My tasks
-  const myTasks = myTasksRes.data ?? [];
+  const myTasks = myTasksRes.rows ?? [];
   // Submissions
-  const submissions = submissionsRes.data ?? [];
+  const submissions = submissionsRes.rows ?? [];
   // Earnings
-  const earningTasks = earningsRes.data ?? [];
+  const earningTasks = earningsRes.rows ?? [];
   const approvedTasks = earningTasks.length;
   const taskRate = Number(process.env.WRITER_TASK_EARNINGS_KES ?? process.env.NEXT_PUBLIC_WRITER_TASK_EARNINGS_KES ?? 0);
   const availableEarnings = approvedTasks * taskRate;
