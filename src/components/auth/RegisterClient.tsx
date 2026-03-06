@@ -149,13 +149,13 @@ export default function RegisterClient() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6">
-        <div className="isolate w-full max-w-md rounded-3xl border border-[color:var(--border)] bg-white/90 p-8 shadow-xl backdrop-blur">
+        <div className="w-full max-w-md rounded-3xl border border-[color:var(--border)] bg-white/90 p-8 shadow-xl backdrop-blur">
           <div className="mb-6">
             <p className="text-xs uppercase tracking-widest text-emerald-600">EduLink Writers</p>
             <h1 className="text-2xl font-semibold">Create your account</h1>
             <p className="mt-1 text-sm text-[color:var(--muted)]">Join as a student or writer in minutes.</p>
           </div>
-          <form onSubmit={handleRegister} className="relative z-10 space-y-4" aria-busy={loading}>
+          <form onSubmit={handleRegister} className="space-y-4" aria-busy={loading}>
             <label className="block">
               <span className="text-sm">Role</span>
               <select
@@ -214,7 +214,7 @@ export default function RegisterClient() {
               {loading ? 'Creating account...' : 'Register'}
             </button>
           </form>
-          <div className="relative z-0 mt-6 border-t border-slate-200 pt-5 pointer-events-none">
+          <div style={{marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem'}}>
             <div className="mb-4 flex items-center gap-3 text-xs uppercase tracking-widest text-slate-400">
               <span className="h-px flex-1 bg-slate-200" />
               Or continue with
@@ -224,7 +224,7 @@ export default function RegisterClient() {
               type="button"
               onClick={handleGoogleRegister}
               disabled={loading}
-              className="pointer-events-auto flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60"
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white">
                 <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
