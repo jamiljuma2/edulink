@@ -4,6 +4,10 @@ import { query } from '@/lib/db';
 import { SUBSCRIPTION_PLANS } from '@/lib/roles';
 import { convertUsdToKes, getUsdToKesRate } from '@/lib/exchangeRates';
 
+type SubscriptionRow = {
+  id: string;
+};
+
 export async function POST(req: Request) {
   const { plan } = await req.json();
   const conf = SUBSCRIPTION_PLANS[plan as keyof typeof SUBSCRIPTION_PLANS];
@@ -22,7 +26,7 @@ export async function POST(req: Request) {
 
   // Create subscription record (inactive until payment success)
   const tasksPerDay = conf.tasksPerDay === Infinity ? 0 : conf.tasksPerDay;
-  const { rows: subRows } = await query(
+  const { rows: subRows } = await query<SubscriptionRow>(
     `insert into subscriptions (writer_id, plan, tasks_per_day, active)
      values ($1, $2, $3, false)
      returning *`,
