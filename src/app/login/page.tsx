@@ -221,7 +221,7 @@ export default function LoginPage() {
               Forgot password?
             </button>
           </form>
-          <div className="mt-6 border-t border-slate-200 pt-5">
+          <div className="relative z-0 mt-6 border-t border-slate-200 pt-5 pointer-events-none">
             <div className="mb-4 flex items-center gap-3 text-xs uppercase tracking-widest text-slate-400">
               <span className="h-px flex-1 bg-slate-200" />
               Or continue with
@@ -231,7 +231,7 @@ export default function LoginPage() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60"
+              className="pointer-events-auto flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60"
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white">
                 <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
