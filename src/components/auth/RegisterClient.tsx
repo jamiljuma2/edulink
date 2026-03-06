@@ -61,6 +61,8 @@ export default function RegisterClient() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
+    e.stopPropagation();
+    console.log('[AUTH] handleRegister fired');
     if (!startAuthFlow()) return;
     try {
       const normalizedEmail = email.trim().toLowerCase();
@@ -102,7 +104,10 @@ export default function RegisterClient() {
     }
   }
 
-  async function handleGoogleRegister() {
+  async function handleGoogleRegister(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('[AUTH] handleGoogleRegister fired');
     if (!startAuthFlow()) return;
     try {
       const provider = new GoogleAuthProvider();
@@ -222,7 +227,7 @@ export default function RegisterClient() {
             </div>
             <button
               type="button"
-              onClick={handleGoogleRegister}
+              onClick={(e) => handleGoogleRegister(e)}
               disabled={loading}
               className="flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60"
             >

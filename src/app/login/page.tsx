@@ -62,6 +62,8 @@ export default function LoginPage() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    e.stopPropagation();
+    console.log('[AUTH] handleLogin fired');
     if (!startAuthFlow()) return;
     try {
       const normalizedEmail = email.trim().toLowerCase();
@@ -103,7 +105,10 @@ export default function LoginPage() {
     }
   }
 
-  async function handleGoogleLogin() {
+  async function handleGoogleLogin(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('[AUTH] handleGoogleLogin fired');
     if (!startAuthFlow()) return;
     try {
       const provider = new GoogleAuthProvider();
@@ -209,7 +214,7 @@ export default function LoginPage() {
                 {error}
               </p>
             )}
-            <button disabled={loading} className="w-full rounded-full bg-emerald-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-emerald-200 disabled:opacity-60">
+            <button type="submit" disabled={loading} className="w-full rounded-full bg-emerald-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-emerald-200 disabled:opacity-60">
               {loading ? 'Signing you in...' : 'Login'}
             </button>
             <button
@@ -229,7 +234,7 @@ export default function LoginPage() {
             </div>
             <button
               type="button"
-              onClick={handleGoogleLogin}
+              onClick={(e) => handleGoogleLogin(e)}
               disabled={loading}
               className="flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60"
             >
