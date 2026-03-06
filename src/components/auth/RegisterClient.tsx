@@ -59,6 +59,21 @@ export default function RegisterClient() {
     }
   }
 
+  async function postJsonWithTimeout(url: string, payload: unknown, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -74,20 +89,17 @@ export default function RegisterClient() {
       const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
       await updateProfile(credential.user, { displayName: name });
       const idToken = await credential.user.getIdToken(true);
-      const registerRes = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, role, displayName: name, email: normalizedEmail }),
+      const registerRes = await postJsonWithTimeout('/api/auth/register', {
+        idToken,
+        role,
+        displayName: name,
+        email: normalizedEmail,
       });
       if (!registerRes.ok) {
         const detail = await registerRes.json().catch(() => ({}));
         throw new Error(detail?.error ?? 'Registration failed.');
       }
-      const sessionRes = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
+      const sessionRes = await postJsonWithTimeout('/api/auth/session', { idToken });
       if (!sessionRes.ok) {
         const detail = await sessionRes.json().catch(() => ({}));
         throw new Error(detail?.error ?? 'Unable to start session.');
@@ -98,6 +110,10 @@ export default function RegisterClient() {
         else router.replace('/writer/dashboard');
       }, 300);
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Registration is taking too long. Please try again.');
+        return;
+      }
       setError(formatAuthError(err, 'Registration failed'));
     } finally {
       endAuthFlow();
@@ -121,20 +137,17 @@ export default function RegisterClient() {
       if (!emailAddress) {
         throw new Error('Google account is missing an email.');
       }
-      const registerRes = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, role, displayName, email: emailAddress }),
+      const registerRes = await postJsonWithTimeout('/api/auth/register', {
+        idToken,
+        role,
+        displayName,
+        email: emailAddress,
       });
       if (!registerRes.ok) {
         const detail = await registerRes.json().catch(() => ({}));
         throw new Error(detail?.error ?? 'Registration failed.');
       }
-      const sessionRes = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
+      const sessionRes = await postJsonWithTimeout('/api/auth/session', { idToken });
       if (!sessionRes.ok) {
         const detail = await sessionRes.json().catch(() => ({}));
         throw new Error(detail?.error ?? 'Unable to start session.');
@@ -145,6 +158,10 @@ export default function RegisterClient() {
         else router.replace('/writer/dashboard');
       }, 300);
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Google registration is taking too long. Please try again.');
+        return;
+      }
       setError(formatAuthError(err, 'Google sign-up failed'));
     } finally {
       endAuthFlow();

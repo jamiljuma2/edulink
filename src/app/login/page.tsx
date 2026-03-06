@@ -60,6 +60,21 @@ export default function LoginPage() {
     }
   }
 
+  async function postJsonWithTimeout(url: string, payload: unknown, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -74,11 +89,7 @@ export default function LoginPage() {
       }
       const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
       const idToken = await credential.user.getIdToken();
-      const sessionRes = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
+      const sessionRes = await postJsonWithTimeout('/api/auth/session', { idToken });
       if (!sessionRes.ok) {
         const detail = await sessionRes.json().catch(() => ({}));
         throw new Error(detail?.error ?? 'Unable to start session.');
@@ -98,6 +109,10 @@ export default function LoginPage() {
       else if (role === 'writer') router.replace('/writer/dashboard');
       else router.replace('/admin/dashboard');
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Sign-in is taking too long. Please try again.');
+        return;
+      }
       setError(formatAuthError(err, 'Login failed'));
       console.error('Login error:', err);
     } finally {
@@ -114,11 +129,7 @@ export default function LoginPage() {
       const provider = new GoogleAuthProvider();
       const credential = await signInWithPopup(auth, provider);
       const idToken = await credential.user.getIdToken();
-      const sessionRes = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
+      const sessionRes = await postJsonWithTimeout('/api/auth/session', { idToken });
       if (!sessionRes.ok) {
         const detail = await sessionRes.json().catch(() => ({}));
         throw new Error(detail?.error ?? 'Unable to start session.');
@@ -138,6 +149,10 @@ export default function LoginPage() {
       else if (role === 'writer') router.replace('/writer/dashboard');
       else router.replace('/admin/dashboard');
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Google sign-in is taking too long. Please try again.');
+        return;
+      }
       setError(formatAuthError(err, 'Google sign-in failed'));
       console.error('Google login error:', err);
     } finally {
