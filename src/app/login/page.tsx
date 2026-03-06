@@ -1,7 +1,8 @@
 "use client";
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import type { FirebaseError } from 'firebase/app';
 import { getFirebaseAuth } from '@/lib/firebaseClient';
 import type { UserRole } from '@/lib/roles';
 
@@ -16,33 +17,59 @@ export default function LoginPage() {
   const [profileEmail, setProfileEmail] = useState('');
   const [profileToken, setProfileToken] = useState('');
   const [creatingProfile, setCreatingProfile] = useState(false);
+  const authBusyRef = useRef(false);
   const router = useRouter();
   const auth = useMemo(() => getFirebaseAuth(), []);
 
+  function startAuthFlow() {
+    if (authBusyRef.current) return false;
+    authBusyRef.current = true;
+    setLoading(true);
+    setError(null);
+    return true;
+  }
+
+  function endAuthFlow() {
+    authBusyRef.current = false;
+    setLoading(false);
+  }
+
   function formatAuthError(err: unknown, fallback: string) {
-    const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback;
-    const message = String(raw ?? '').trim();
-    const lowered = message.toLowerCase();
-    if (
-      lowered.includes('auth/') ||
-      lowered.includes('invalid') ||
-      lowered.includes('credential') ||
-      lowered.includes('token') ||
-      message.startsWith('{') ||
-      message.startsWith('[')
-    ) {
-      return 'Invalid details.';
+    const code = typeof err === 'object' && err && 'code' in err ? String((err as FirebaseError).code) : '';
+    switch (code) {
+      case 'auth/operation-not-allowed':
+        return 'Email/password sign-in is disabled. Enable it in Firebase Auth.';
+      case 'auth/user-not-found':
+        return 'No account found with that email.';
+      case 'auth/wrong-password':
+        return 'Incorrect password.';
+      case 'auth/invalid-email':
+        return 'Enter a valid email address.';
+      case 'auth/invalid-credential':
+        return 'Invalid details.';
+      case 'auth/too-many-requests':
+        return 'Too many attempts. Try again later.';
+      case 'auth/network-request-failed':
+        return 'Network error. Check your connection.';
+      default: {
+        const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback;
+        const message = String(raw ?? '').trim();
+        return message || fallback;
+      }
     }
-    return message || fallback;
   }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
-    setLoading(true);
-    setError(null);
+    if (!startAuthFlow()) return;
     try {
-      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        setError('Enter a valid email address.');
+        endAuthFlow();
+        return;
+      }
+      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
       const idToken = await credential.user.getIdToken();
       const sessionRes = await fetch('/api/auth/session', {
         method: 'POST',
@@ -71,14 +98,12 @@ export default function LoginPage() {
       setError(formatAuthError(err, 'Login failed'));
       console.error('Login error:', err);
     } finally {
-      setLoading(false);
+      endAuthFlow();
     }
   }
 
   async function handleGoogleLogin() {
-    if (loading) return;
-    setLoading(true);
-    setError(null);
+    if (!startAuthFlow()) return;
     try {
       const provider = new GoogleAuthProvider();
       const credential = await signInWithPopup(auth, provider);
@@ -110,31 +135,35 @@ export default function LoginPage() {
       setError(formatAuthError(err, 'Google sign-in failed'));
       console.error('Google login error:', err);
     } finally {
-      setLoading(false);
+      endAuthFlow();
     }
   }
 
   async function handlePasswordReset() {
-    if (loading) return;
+    if (!startAuthFlow()) return;
     if (!email.trim()) {
       setError('Enter your email first to reset your password.');
+      endAuthFlow();
       return;
     }
-    setLoading(true);
-    setError(null);
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        setError('Enter a valid email address.');
+        endAuthFlow();
+        return;
+      }
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       const actionUrl = `${baseUrl}/reset-password`;
-      await sendPasswordResetEmail(auth, email.trim(), {
+      await sendPasswordResetEmail(auth, normalizedEmail, {
         url: actionUrl,
         handleCodeInApp: true,
       });
       setError('Password reset email sent. Check your inbox.');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to send reset email.';
-      setError(message);
+      setError(formatAuthError(err, 'Failed to send reset email.'));
     } finally {
-      setLoading(false);
+      endAuthFlow();
     }
   }
 

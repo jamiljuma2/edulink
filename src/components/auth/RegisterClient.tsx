@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { GoogleAuthProvider, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
+import type { FirebaseError } from 'firebase/app';
 import { getFirebaseAuth } from '@/lib/firebaseClient';
 import { UserRole } from '@/lib/roles';
 
@@ -17,40 +18,64 @@ export default function RegisterClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const authBusyRef = useRef(false);
 
   const auth = useMemo(() => getFirebaseAuth(), []);
 
+  function startAuthFlow() {
+    if (authBusyRef.current) return false;
+    authBusyRef.current = true;
+    setLoading(true);
+    setError(null);
+    setOk(null);
+    return true;
+  }
+
+  function endAuthFlow() {
+    authBusyRef.current = false;
+    setLoading(false);
+  }
+
   function formatAuthError(err: unknown, fallback: string) {
-    const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback;
-    const message = String(raw ?? '').trim();
-    const lowered = message.toLowerCase();
-    if (
-      lowered.includes('auth/') ||
-      lowered.includes('invalid') ||
-      lowered.includes('credential') ||
-      lowered.includes('token') ||
-      message.startsWith('{') ||
-      message.startsWith('[')
-    ) {
-      return 'Invalid details.';
+    const code = typeof err === 'object' && err && 'code' in err ? String((err as FirebaseError).code) : '';
+    switch (code) {
+      case 'auth/operation-not-allowed':
+        return 'Email/password sign-up is disabled. Enable it in Firebase Auth.';
+      case 'auth/email-already-in-use':
+        return 'An account already exists with that email.';
+      case 'auth/invalid-email':
+        return 'Enter a valid email address.';
+      case 'auth/weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      case 'auth/too-many-requests':
+        return 'Too many attempts. Try again later.';
+      case 'auth/network-request-failed':
+        return 'Network error. Check your connection.';
+      default: {
+        const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback;
+        const message = String(raw ?? '').trim();
+        return message || fallback;
+      }
     }
-    return message || fallback;
   }
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
-    setLoading(true);
-    setError(null);
-    setOk(null);
+    if (!startAuthFlow()) return;
     try {
-      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        setError('Enter a valid email address.');
+        endAuthFlow();
+        return;
+      }
+      const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
       await updateProfile(credential.user, { displayName: name });
       const idToken = await credential.user.getIdToken(true);
       const registerRes = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, role, displayName: name, email }),
+        body: JSON.stringify({ idToken, role, displayName: name, email: normalizedEmail }),
       });
       if (!registerRes.ok) {
         const detail = await registerRes.json().catch(() => ({}));
@@ -73,15 +98,12 @@ export default function RegisterClient() {
     } catch (err: unknown) {
       setError(formatAuthError(err, 'Registration failed'));
     } finally {
-      setLoading(false);
+      endAuthFlow();
     }
   }
 
   async function handleGoogleRegister() {
-    if (loading) return;
-    setLoading(true);
-    setError(null);
-    setOk(null);
+    if (!startAuthFlow()) return;
     try {
       const provider = new GoogleAuthProvider();
       const credential = await signInWithPopup(auth, provider);
@@ -120,7 +142,7 @@ export default function RegisterClient() {
     } catch (err: unknown) {
       setError(formatAuthError(err, 'Google sign-up failed'));
     } finally {
-      setLoading(false);
+      endAuthFlow();
     }
   }
 
