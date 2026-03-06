@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [needsProfile, setNeedsProfile] = useState(false);
   const [profileRole, setProfileRole] = useState<UserRole>('student');
   const [profileName, setProfileName] = useState('');
@@ -26,6 +27,7 @@ export default function LoginPage() {
     authBusyRef.current = true;
     setLoading(true);
     setError(null);
+    setInfo(null);
     return true;
   }
 
@@ -172,13 +174,9 @@ export default function LoginPage() {
         endAuthFlow();
         return;
       }
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const actionUrl = `${baseUrl}/reset-password`;
-      await sendPasswordResetEmail(auth, normalizedEmail, {
-        url: actionUrl,
-        handleCodeInApp: true,
-      });
-      setError('Password reset email sent. Check your inbox.');
+      // Use Firebase default reset handler for reliability across environments.
+      await sendPasswordResetEmail(auth, normalizedEmail);
+      setInfo('Password reset email sent. Check your inbox.');
     } catch (err: unknown) {
       setError(formatAuthError(err, 'Failed to send reset email.'));
     } finally {
@@ -227,6 +225,7 @@ export default function LoginPage() {
                 {error}
               </p>
             )}
+            {info && <p className="text-sm text-emerald-600">{info}</p>}
             <button type="submit" disabled={loading} className="w-full rounded-full bg-emerald-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-emerald-200 disabled:opacity-60">
               {loading ? 'Signing you in...' : 'Login'}
             </button>
