@@ -1,6 +1,6 @@
 -- Project schema for external PostgreSQL
 create table if not exists public.profiles (
-  id uuid primary key,
+  id text primary key,
   email text unique,
   display_name text,
   role text check (role in ('student','writer','admin')) not null,
@@ -9,7 +9,7 @@ create table if not exists public.profiles (
 );
 
 create table if not exists public.wallets (
-  user_id uuid primary key references public.profiles(id) on delete cascade,
+  user_id text primary key references public.profiles(id) on delete cascade,
   balance numeric(12,2) default 0 not null,
   currency text default 'USD' not null,
   updated_at timestamp with time zone default now()
@@ -17,7 +17,7 @@ create table if not exists public.wallets (
 
 create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.profiles(id) on delete cascade,
+  user_id text references public.profiles(id) on delete cascade,
   type text check (type in ('topup','payment','payout','subscription')) not null,
   amount numeric(12,2) not null,
   currency text default 'USD' not null,
@@ -29,8 +29,8 @@ create table if not exists public.transactions (
 
 create table if not exists public.assignments (
   id uuid primary key default gen_random_uuid(),
-  student_id uuid references public.profiles(id) on delete cascade,
-  writer_id uuid references public.profiles(id) on delete set null,
+  student_id text references public.profiles(id) on delete cascade,
+  writer_id text references public.profiles(id) on delete set null,
   title text not null,
   description text,
   status text check (status in ('open','in_progress','submitted','completed','cancelled')) default 'open' not null,
@@ -41,7 +41,7 @@ create table if not exists public.assignments (
 
 create table if not exists public.subscriptions (
   id uuid primary key default gen_random_uuid(),
-  writer_id uuid references public.profiles(id) on delete cascade,
+  writer_id text references public.profiles(id) on delete cascade,
   plan text check (plan in ('basic','standard','premium')) not null,
   tasks_per_day int not null,
   active boolean default false,
@@ -52,7 +52,7 @@ create table if not exists public.subscriptions (
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   assignment_id uuid references public.assignments(id) on delete cascade,
-  writer_id uuid references public.profiles(id) on delete cascade,
+  writer_id text references public.profiles(id) on delete cascade,
   status text check (status in ('accepted','working','submitted','approved','rejected')) default 'accepted' not null,
   created_at timestamp with time zone default now()
 );
@@ -60,7 +60,7 @@ create table if not exists public.tasks (
 create table if not exists public.task_submissions (
   id uuid primary key default gen_random_uuid(),
   task_id uuid references public.tasks(id) on delete cascade,
-  writer_id uuid references public.profiles(id) on delete cascade,
+  writer_id text references public.profiles(id) on delete cascade,
   storage_path text not null,
   notes text,
   status text check (status in ('pending','approved','rejected')) default 'pending' not null,
@@ -69,7 +69,7 @@ create table if not exists public.task_submissions (
 
 create table if not exists public.registration_logs (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.profiles(id) on delete cascade,
+  user_id text references public.profiles(id) on delete cascade,
   action text not null,
   created_at timestamp with time zone default now()
 );
