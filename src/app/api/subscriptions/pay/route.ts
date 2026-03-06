@@ -3,6 +3,7 @@ import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { query } from '@/lib/db';
 import { SUBSCRIPTION_PLANS } from '@/lib/roles';
 import { convertUsdToKes, getUsdToKesRate } from '@/lib/exchangeRates';
+import { normalizeKenyanPhone } from '@/lib/phone';
 
 type SubscriptionRow = {
   plan: keyof typeof SUBSCRIPTION_PLANS;
@@ -12,6 +13,10 @@ export async function POST(req: Request) {
   const { subscriptionId, phone } = await req.json();
   if (!subscriptionId || !phone) {
     return NextResponse.json({ error: 'subscriptionId and phone required' }, { status: 400 });
+  }
+  const normalizedPhone = normalizeKenyanPhone(phone);
+  if (!normalizedPhone) {
+    return NextResponse.json({ error: 'Enter a valid Safaricom M-Pesa number (e.g. 07..., 254..., or +254...).' }, { status: 400 });
   }
 
   const user = await getServerFirebaseUser();
@@ -57,7 +62,7 @@ export async function POST(req: Request) {
       'Content-Type': 'application/json',
       'x-api-key': lipanaKey,
     },
-    body: JSON.stringify({ phone, amount }),
+    body: JSON.stringify({ phone: normalizedPhone, amount }),
   });
 
   const payload = await res.json().catch(() => ({}));

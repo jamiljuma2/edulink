@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { query } from '@/lib/db';
+import { normalizeKenyanPhone } from '@/lib/phone';
 
 export async function POST(req: Request) {
   const { amount, phone } = await req.json();
   if (!amount || !phone) return NextResponse.json({ error: 'amount and phone required' }, { status: 400 });
+  const normalizedPhone = normalizeKenyanPhone(phone);
+  if (!normalizedPhone) {
+    return NextResponse.json({ error: 'Enter a valid Safaricom M-Pesa number (e.g. 07..., 254..., or +254...).' }, { status: 400 });
+  }
 
   const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -30,7 +35,7 @@ export async function POST(req: Request) {
   await query(
     `insert into transactions (user_id, type, amount, currency, status, meta)
      values ($1, $2, $3, $4, $5, $6)`,
-    [user.id, 'payout', Number(amount), wallet?.currency ?? 'KES', 'pending', { phone }]
+    [user.id, 'payout', Number(amount), wallet?.currency ?? 'KES', 'pending', { phone: normalizedPhone }]
   );
 
   return NextResponse.json({ ok: true, message: 'Withdrawal request submitted.' });

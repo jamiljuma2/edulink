@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerFirebaseUser } from '@/lib/firebaseAuth';
 import { query } from '@/lib/db';
+import { normalizeKenyanPhone } from '@/lib/phone';
 
 export async function POST(req: Request) {
   const { amount, phone } = await req.json();
@@ -23,6 +24,10 @@ export async function POST(req: Request) {
   if (!phone) {
     return NextResponse.json({ error: 'Phone number required' }, { status: 400 });
   }
+  const normalizedPhone = normalizeKenyanPhone(phone);
+  if (!normalizedPhone) {
+    return NextResponse.json({ error: 'Enter a valid Safaricom M-Pesa number (e.g. 07..., 254..., or +254...).' }, { status: 400 });
+  }
   if (Number(amount) < 10) {
     return NextResponse.json({ error: 'Minimum amount is KES 10' }, { status: 400 });
   }
@@ -33,7 +38,7 @@ export async function POST(req: Request) {
       'Content-Type': 'application/json',
       'x-api-key': lipanaKey,
     },
-    body: JSON.stringify({ phone, amount: Number(amount) }),
+    body: JSON.stringify({ phone: normalizedPhone, amount: Number(amount) }),
   });
 
   const payload = await res.json().catch(() => ({}));
