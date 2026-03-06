@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, fetchSignInMethodsForEmail, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import type { FirebaseError } from 'firebase/app';
 import { getFirebaseAuth } from '@/lib/firebaseClient';
 import type { UserRole } from '@/lib/roles';
@@ -174,9 +174,14 @@ export default function LoginPage() {
         endAuthFlow();
         return;
       }
+      const signInMethods = await fetchSignInMethodsForEmail(auth, normalizedEmail).catch(() => null);
+      if (Array.isArray(signInMethods) && signInMethods.length > 0 && !signInMethods.includes('password')) {
+        setInfo('This account uses Google sign-in. Use Google login for this email.');
+        return;
+      }
       // Use Firebase default reset handler for reliability across environments.
       await sendPasswordResetEmail(auth, normalizedEmail);
-      setInfo('Password reset email sent. Check your inbox.');
+      setInfo('If this email has a password account, a reset link has been sent. Check inbox and spam.');
     } catch (err: unknown) {
       setError(formatAuthError(err, 'Failed to send reset email.'));
     } finally {
