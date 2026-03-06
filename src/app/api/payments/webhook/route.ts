@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { getClient, query } from '@/lib/db';
 
+type TransactionRow = {
+  id: string;
+  user_id: string;
+  type: string;
+  amount: number;
+  status: string;
+  meta: { subscription_id?: string } | null;
+};
+
 export async function POST(req: Request) {
   const raw = await req.text();
   // Log all headers for debugging
@@ -45,7 +54,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
-  const { rows: txnRows } = await query('select * from transactions where reference = $1', [transactionId]);
+  const { rows: txnRows } = await query<TransactionRow>(
+    'select id, user_id, type, amount, status, meta from transactions where reference = $1',
+    [transactionId]
+  );
   const txn = txnRows[0];
   if (!txn) {
     console.warn('[WEBHOOK] No transaction found for reference:', transactionId);
