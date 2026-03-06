@@ -155,12 +155,12 @@ export default function RegisterClient() {
             <h1 className="text-2xl font-semibold">Create your account</h1>
             <p className="mt-1 text-sm text-[color:var(--muted)]">Join as a student or writer in minutes.</p>
           </div>
-          <div className="relative z-0 space-y-3">
+          <div className="relative z-0 space-y-3 pointer-events-none">
             <button
               type="button"
               onClick={handleGoogleRegister}
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60"
+              className="pointer-events-auto flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60"
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white">
                 <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
