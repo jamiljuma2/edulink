@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebaseClient';
 import type { UserRole } from '@/lib/roles';
 
@@ -104,6 +104,25 @@ export default function LoginPage() {
     }
   }
 
+  async function handlePasswordReset() {
+    if (loading) return;
+    if (!email.trim()) {
+      setError('Enter your email first to reset your password.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setError('Password reset email sent. Check your inbox.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to send reset email.';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-6">
@@ -164,9 +183,21 @@ export default function LoginPage() {
                 placeholder="Enter your password"
               />
             </label>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && (
+              <p className={error.toLowerCase().includes('sent') ? 'text-sm text-emerald-600' : 'text-sm text-red-600'}>
+                {error}
+              </p>
+            )}
             <button disabled={loading} className="w-full rounded-full bg-emerald-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-emerald-200 disabled:opacity-60">
               {loading ? 'Signing you in...' : 'Login'}
+            </button>
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              disabled={loading}
+              className="w-full text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+            >
+              Forgot password?
             </button>
           </form>
         </div>
