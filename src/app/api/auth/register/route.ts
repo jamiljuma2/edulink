@@ -19,6 +19,13 @@ export async function POST(request: Request) {
   }
   try {
     const decoded = await getFirebaseAdminAuth().verifyIdToken(idToken, true);
+    console.log('Register token debug:', {
+      uid: decoded.uid,
+      email: decoded.email,
+      aud: decoded.aud,
+      iss: decoded.iss,
+      firebaseProject: decoded.firebase?.sign_in_provider,
+    });
     await query(
       `insert into profiles (id, email, display_name, role, approval_status)
        values ($1, $2, $3, $4, 'approved')
