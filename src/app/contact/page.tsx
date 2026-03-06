@@ -13,7 +13,7 @@ export default function ContactPage() {
         <div className="mt-10 grid gap-6 sm:grid-cols-2">
           <div className="rounded-2xl border border-emerald-400/15 bg-slate-900/60 p-6">
             <h2 className="text-lg font-semibold">Support email</h2>
-            <p className="mt-3 text-sm text-slate-300/80">edulinkwriters@gmail.com</p>
+            <p className="mt-3 text-sm text-slate-300/80">support@edulinkwriters.com</p>
           </div>
           <div className="rounded-2xl border border-emerald-400/15 bg-slate-900/60 p-6">
             <h2 className="text-lg font-semibold">Phone</h2>
