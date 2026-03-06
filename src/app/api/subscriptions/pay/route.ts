@@ -4,6 +4,10 @@ import { query } from '@/lib/db';
 import { SUBSCRIPTION_PLANS } from '@/lib/roles';
 import { convertUsdToKes, getUsdToKesRate } from '@/lib/exchangeRates';
 
+type SubscriptionRow = {
+  plan: keyof typeof SUBSCRIPTION_PLANS;
+};
+
 export async function POST(req: Request) {
   const { subscriptionId, phone } = await req.json();
   if (!subscriptionId || !phone) {
@@ -22,7 +26,7 @@ export async function POST(req: Request) {
   if (profile.approval_status !== 'approved') return NextResponse.json({ error: 'Approval required' }, { status: 403 });
   if (profile.role !== 'writer') return NextResponse.json({ error: 'Writer role required' }, { status: 403 });
 
-  const { rows: subRows } = await query(
+  const { rows: subRows } = await query<SubscriptionRow>(
     'select * from subscriptions where id = $1 and writer_id = $2',
     [subscriptionId, user.id]
   );
