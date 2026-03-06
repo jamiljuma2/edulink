@@ -174,10 +174,19 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
   }, [auth]);
 
   async function subscribe(plan: SubscriptionPlan) {
-    const { data } = await axios.post('/api/subscriptions/checkout', { plan });
-    setSubscriptionId(data?.subscriptionId ?? null);
-    setPayAmount(data?.amount ?? null);
-    setPayOpen(true);
+    setMessage(null);
+    try {
+      const { data } = await axios.post('/api/subscriptions/checkout', { plan });
+      setSubscriptionId(data?.subscriptionId ?? null);
+      setPayAmount(data?.amount ?? null);
+      setPayOpen(true);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setMessage(err.response?.data?.error ?? 'Failed to start subscription checkout.');
+      } else {
+        setMessage('Failed to start subscription checkout.');
+      }
+    }
   }
 
   async function submitPayment() {
