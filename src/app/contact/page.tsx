@@ -16,10 +16,6 @@ export default function ContactPage() {
             <p className="mt-3 text-sm text-slate-300/80">support@edulinkwriters.com</p>
           </div>
           <div className="rounded-2xl border border-emerald-400/15 bg-slate-900/60 p-6">
-            <h2 className="text-lg font-semibold">Phone</h2>
-            <p className="mt-3 text-sm text-slate-300/80">+254700686463</p>
-          </div>
-          <div className="rounded-2xl border border-emerald-400/15 bg-slate-900/60 p-6">
             <h2 className="text-lg font-semibold">Office hours</h2>
             <p className="mt-3 text-sm text-slate-300/80">Mon–Fri, 9:00 AM – 6:00 PM (EAT)</p>
           </div>
