@@ -1,11 +1,21 @@
 "use client";
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import axios from 'axios';
-import { ShieldCheck, Users, FileCheck2, Bell } from 'lucide-react';
+import { ShieldCheck, Users, FileCheck2, Bell, CircleDot } from 'lucide-react';
 import DashboardShell, { NavItem } from '@/components/layouts/DashboardShell';
 
-type Profile = { id: string; email: string; display_name: string; role: string; approval_status: string };
+type UserAccount = {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+  role: string;
+  approval_status: string;
+  created_at: string;
+  last_seen_at: string | null;
+  is_online: boolean;
+};
+
 type Submission = {
   id: string;
   status: string;
@@ -29,7 +39,6 @@ type Withdrawal = Payment;
 
 type ModalState =
   | { kind: 'none' }
-  | { kind: 'approval'; data: Profile }
   | { kind: 'submission'; data: Submission }
   | { kind: 'payment'; data: Payment };
 
@@ -49,14 +58,17 @@ function Modal({ open, title, onClose, children }: { open: boolean; title: strin
 }
 
 type AdminDashboardClientProps = {
-  pending: Profile[];
-  totalPending: number;
+  users: UserAccount[];
+  totalUsers: number;
+  onlineUsers: number;
+  offlineUsers: number;
   submissions: Submission[];
   totalSubmissions: number;
   payments: Payment[];
   totalPayments: number;
   withdrawals: Withdrawal[];
   totalWithdrawals: number;
+  userPage: number;
   subPage: number;
   payPage: number;
   withPage: number;
@@ -64,14 +76,17 @@ type AdminDashboardClientProps = {
 };
 
 export default function AdminDashboardClient({
-  pending,
-  totalPending,
+  users,
+  totalUsers,
+  onlineUsers,
+  offlineUsers,
   submissions,
   totalSubmissions,
   payments,
   totalPayments,
   withdrawals,
   totalWithdrawals,
+  userPage,
   subPage,
   payPage,
   withPage,
@@ -84,16 +99,42 @@ export default function AdminDashboardClient({
   ];
   const [message, setMessage] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [downloadUrls, setDownloadUrls] = useState<Record<string, string>>({});
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [usersData, setUsersData] = useState<UserAccount[]>(users);
+  const [presenceCounts, setPresenceCounts] = useState({ onlineUsers, offlineUsers });
 
-  async function approve(id: string) {
-    setProcessingId(id);
-    await axios.post('/api/admin/approvals', { userId: id });
-    setMessage('User approved');
-    setProcessingId(null);
-    // Optionally: reload page or refetch data
+  async function updateUserAccount(
+    userId: string,
+    action: 'approve' | 'disable' | 'set_pending' | 'set_role',
+    role?: 'student' | 'writer' | 'admin'
+  ) {
+    setProcessingId(userId);
+    try {
+      const { data } = await axios.patch('/api/admin/users', { userId, action, role });
+      const updated = data?.user as UserAccount | undefined;
+      if (updated) {
+        setUsersData((prevUsers) => {
+          const previousUser = prevUsers.find((u) => u.id === userId);
+          if (previousUser && previousUser.is_online !== updated.is_online) {
+            setPresenceCounts((prevCounts) => {
+              const nextOnlineUsers = Math.max(0, prevCounts.onlineUsers + (updated.is_online ? 1 : -1));
+              return {
+                onlineUsers: nextOnlineUsers,
+                offlineUsers: Math.max(0, totalUsers - nextOnlineUsers),
+              };
+            });
+          }
+          return prevUsers.map((u) => (u.id === userId ? updated : u));
+        });
+      }
+      setMessage(data?.message ?? 'User updated.');
+    } catch (error) {
+      console.error('Failed to update user account:', error);
+      setMessage('Failed to update user account.');
+    } finally {
+      setProcessingId(null);
+    }
   }
 
   async function decideSubmission(submissionId: string, decision: 'approve' | 'reject') {
@@ -133,12 +174,12 @@ export default function AdminDashboardClient({
       headerRight={
         <div className="flex items-center gap-3">
           <div className="rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-emerald-50 px-4 py-3 shadow-sm">
-            <p className="text-xs uppercase tracking-widest text-emerald-700/70">Submissions</p>
-            <p className="text-lg font-semibold text-emerald-950">{submissions.length}</p>
+            <p className="text-xs uppercase tracking-widest text-emerald-700/70">Users</p>
+            <p className="text-lg font-semibold text-emerald-950">{totalUsers}</p>
           </div>
           <div className="rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/30 px-4 py-3 shadow-sm">
-            <p className="text-xs uppercase tracking-widest text-emerald-700/70">Payments</p>
-            <p className="text-lg font-semibold text-emerald-950">{payments.length}</p>
+            <p className="text-xs uppercase tracking-widest text-emerald-700/70">Online</p>
+            <p className="text-lg font-semibold text-emerald-950">{presenceCounts.onlineUsers}</p>
           </div>
           <button className="btn-secondary" aria-label="Notifications">
             <Bell className="h-4 w-4" />
@@ -147,7 +188,89 @@ export default function AdminDashboardClient({
       }
     >
       <div className="grid gap-6 xl:grid-cols-2">
-        {/* Pending approvals section removed */}
+        <div className="card xl:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Registered Users</h2>
+              <p className="mt-2 text-sm text-[color:var(--muted)]">Monitor online status and take account actions.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                <CircleDot className="h-3 w-3" /> Online: {presenceCounts.onlineUsers}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                <CircleDot className="h-3 w-3" /> Offline: {presenceCounts.offlineUsers}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {usersData.map((user) => (
+              <div key={user.id} className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{user.display_name || 'Unnamed user'}</p>
+                    <p className="text-sm text-[color:var(--muted)]">{user.email}</p>
+                    <p className="mt-1 text-xs text-[color:var(--muted)]">
+                      Role: <span className="font-medium">{user.role}</span> | Approval: <span className="font-medium">{user.approval_status}</span>
+                    </p>
+                    <p className="text-xs text-[color:var(--muted)]">
+                      {user.is_online ? 'Online now' : `Offline - Last seen ${user.last_seen_at ? new Date(user.last_seen_at).toLocaleString() : 'never'}`}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {user.approval_status !== 'approved' && (
+                      <button className="btn-primary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'approve')} disabled={processingId === user.id}>
+                        {processingId === user.id ? 'Updating...' : 'Approve'}
+                      </button>
+                    )}
+                    {user.approval_status !== 'rejected' && (
+                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'disable')} disabled={processingId === user.id}>
+                        {processingId === user.id ? 'Updating...' : 'Disable'}
+                      </button>
+                    )}
+                    {user.approval_status !== 'pending' && (
+                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_pending')} disabled={processingId === user.id}>
+                        {processingId === user.id ? 'Updating...' : 'Set Pending'}
+                      </button>
+                    )}
+                    {user.role !== 'writer' && (
+                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'writer')} disabled={processingId === user.id}>
+                        {processingId === user.id ? 'Updating...' : 'Make Writer'}
+                      </button>
+                    )}
+                    {user.role !== 'student' && (
+                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'student')} disabled={processingId === user.id}>
+                        {processingId === user.id ? 'Updating...' : 'Make Student'}
+                      </button>
+                    )}
+                    {user.role !== 'admin' && (
+                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'admin')} disabled={processingId === user.id}>
+                        {processingId === user.id ? 'Updating...' : 'Make Admin'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {usersData.length === 0 && <p className="text-sm text-[color:var(--muted)]">No users found.</p>}
+          </div>
+
+          {totalUsers > pageSize && (
+            <div className="mt-4 flex justify-center">
+              {Array.from({ length: Math.ceil(totalUsers / pageSize) }, (_, i) => (
+                <a
+                  key={i}
+                  href={buildPageUrl('userPage', i + 1)}
+                  className={`mx-1 rounded px-3 py-1 ${userPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                >
+                  {i + 1}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="card">
           <h2 className="text-xl font-semibold">Task Submissions</h2>
@@ -178,7 +301,6 @@ export default function AdminDashboardClient({
                     try {
                       const { data } = await axios.post('/api/admin/submissions/signed-url', { storage_path: s.storage_path });
                       if (data?.signedUrl) {
-                        setDownloadUrls((prev) => ({ ...prev, [s.id]: data.signedUrl }));
                         window.open(data.signedUrl, '_blank', 'noopener');
                       } else {
                         alert('Failed to get download link.');
@@ -287,9 +409,7 @@ export default function AdminDashboardClient({
     <Modal
       open={modal.kind !== 'none'}
       title={
-        modal.kind === 'approval'
-          ? 'Approval Details'
-          : modal.kind === 'submission'
+        modal.kind === 'submission'
           ? 'Submission Details'
           : modal.kind === 'payment'
           ? 'Payment Details'
@@ -297,14 +417,6 @@ export default function AdminDashboardClient({
       }
       onClose={() => setModal({ kind: 'none' })}
     >
-      {modal.kind === 'approval' && (
-        <div className="space-y-2">
-          <div><span className="font-semibold">Name:</span> {modal.data.display_name}</div>
-          <div><span className="font-semibold">Email:</span> {modal.data.email}</div>
-          <div><span className="font-semibold">Role:</span> {modal.data.role}</div>
-          <div><span className="font-semibold">Status:</span> {modal.data.approval_status}</div>
-        </div>
-      )}
       {modal.kind === 'submission' && (
         <div className="space-y-2">
           <div><span className="font-semibold">Assignment:</span> {modal.data.tasks?.assignments?.title ?? 'Assignment'}</div>
@@ -318,7 +430,6 @@ export default function AdminDashboardClient({
               try {
                 const { data } = await axios.post('/api/admin/submissions/signed-url', { storage_path: modal.data.storage_path });
                 if (data?.signedUrl) {
-                  setDownloadUrls((prev) => ({ ...prev, [modal.data.id]: data.signedUrl }));
                   window.open(data.signedUrl, '_blank', 'noopener');
                 } else {
                   alert('Failed to get download link.');

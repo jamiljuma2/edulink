@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       expiresIn: SESSION_EXPIRES_IN_MS,
     });
     const decoded = await adminAuth.verifyIdToken(idToken);
+    await query('update profiles set last_seen_at = now() where id = $1', [decoded.uid]);
     const { rows } = await query(
       'select id, role, approval_status from profiles where id = $1',
       [decoded.uid]

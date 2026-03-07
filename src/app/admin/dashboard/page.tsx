@@ -1,15 +1,16 @@
-
 import AdminDashboardClient from '@/components/dashboards/AdminDashboardClient';
 import { requireRole } from '@/lib/auth';
 import { query } from '@/lib/db';
 
 type ProfileRow = {
   id: string;
-  email: string;
-  display_name: string;
+  email: string | null;
+  display_name: string | null;
   role: string;
   approval_status: string;
   created_at: string;
+  last_seen_at: string | null;
+  is_online: boolean;
 };
 
 type SubmissionRow = {
@@ -65,25 +66,30 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
   const subPage = getPageParam('subPage');
   const payPage = getPageParam('payPage');
   const withPage = getPageParam('withPage');
+  const userPage = getPageParam('userPage');
   const pageSize = 10;
   const subFrom = (subPage - 1) * pageSize;
-  const subTo = subFrom + pageSize - 1;
   const payFrom = (payPage - 1) * pageSize;
-  const payTo = payFrom + pageSize - 1;
   const withFrom = (withPage - 1) * pageSize;
-  const withTo = withFrom + pageSize - 1;
+  const userFrom = (userPage - 1) * pageSize;
 
   // Fetch all dashboard data in parallel
-  const [pendingRes, pendingCountRes, submissionsRes, submissionsCountRes, paymentsRes, paymentsCountRes, withdrawalsRes, withdrawalsCountRes] = await Promise.all([
+  const [usersRes, usersCountRes, usersOnlineCountRes, submissionsRes, submissionsCountRes, paymentsRes, paymentsCountRes, withdrawalsRes, withdrawalsCountRes] = await Promise.all([
     query<ProfileRow>(
-      `select id, email, display_name, role, approval_status, created_at
+      `select id, email, display_name, role, approval_status, created_at, last_seen_at,
+              case when last_seen_at is not null and last_seen_at >= now() - interval '5 minutes' then true else false end as is_online
        from profiles
-       where approval_status = 'pending'
-       order by created_at asc
-       limit 10`,
+       order by created_at desc
+       limit $1 offset $2`,
+      [pageSize, userFrom]
+    ),
+    query<{ count: string }>('select count(*) from profiles', []),
+    query<{ count: string }>(
+      `select count(*)
+       from profiles
+       where last_seen_at is not null and last_seen_at >= now() - interval '5 minutes'`,
       []
     ),
-    query<{ count: string }>("select count(*) from profiles where approval_status = 'pending'", []),
     query<SubmissionRow>(
       `select ts.id, ts.status, ts.notes, ts.created_at, ts.storage_path, ts.task_id, ts.writer_id,
               jsonb_build_object(
@@ -123,8 +129,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
     query<{ count: string }>("select count(*) from transactions where type = 'payout'", []),
   ]);
 
-  const pending = pendingRes.rows ?? [];
-  const totalPending = Number(pendingCountRes.rows[0]?.count ?? pending.length);
+  const users = usersRes.rows ?? [];
+  const totalUsers = Number(usersCountRes.rows[0]?.count ?? users.length);
+  const onlineUsers = Number(usersOnlineCountRes.rows[0]?.count ?? 0);
+  const offlineUsers = Math.max(0, totalUsers - onlineUsers);
   const submissions = submissionsRes.rows ?? [];
   const totalSubmissions = Number(submissionsCountRes.rows[0]?.count ?? submissions.length);
   const payments = paymentsRes.rows ?? [];
@@ -133,8 +141,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
   const totalWithdrawals = Number(withdrawalsCountRes.rows[0]?.count ?? withdrawals.length);
 
   return <AdminDashboardClient
-    pending={pending}
-    totalPending={totalPending}
+    users={users}
+    totalUsers={totalUsers}
+    onlineUsers={onlineUsers}
+    offlineUsers={offlineUsers}
     submissions={submissions}
     totalSubmissions={totalSubmissions}
     payments={payments}
@@ -144,6 +154,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
     subPage={subPage}
     payPage={payPage}
     withPage={withPage}
+    userPage={userPage}
     pageSize={pageSize}
   />;
 }

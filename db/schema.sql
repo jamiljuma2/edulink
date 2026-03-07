@@ -5,8 +5,11 @@ create table if not exists public.profiles (
   display_name text,
   role text check (role in ('student','writer','admin')) not null,
   approval_status text check (approval_status in ('pending','approved','rejected')) default 'pending' not null,
+  last_seen_at timestamp with time zone,
   created_at timestamp with time zone default now()
 );
+
+alter table public.profiles add column if not exists last_seen_at timestamp with time zone;
 
 create table if not exists public.wallets (
   user_id text primary key references public.profiles(id) on delete cascade,
@@ -76,6 +79,7 @@ create table if not exists public.registration_logs (
 
 create index if not exists idx_profiles_approval_status on public.profiles (approval_status);
 create index if not exists idx_profiles_role on public.profiles (role);
+create index if not exists idx_profiles_last_seen_at on public.profiles (last_seen_at desc);
 create index if not exists idx_transactions_created_at on public.transactions (created_at desc);
 create index if not exists idx_transactions_type_created_at on public.transactions (type, created_at desc);
 create index if not exists idx_tasks_writer_id on public.tasks (writer_id);
