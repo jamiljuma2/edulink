@@ -89,10 +89,11 @@ export default function LoginPage() {
         return;
       }
       const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
-      const idToken = await credential.user.getIdToken();
+      const idToken = await credential.user.getIdToken(true);
       const sessionRes = await postJsonWithTimeout('/api/auth/session', { idToken });
       if (!sessionRes.ok) {
         const detail = await sessionRes.json().catch(() => ({}));
+        console.error('Session start failed', { status: sessionRes.status, detail });
         throw new Error(detail?.error ?? 'Unable to start session.');
       }
       const sessionData = await sessionRes.json().catch(() => ({}));
@@ -128,10 +129,11 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       const credential = await signInWithPopup(auth, provider);
-      const idToken = await credential.user.getIdToken();
+      const idToken = await credential.user.getIdToken(true);
       const sessionRes = await postJsonWithTimeout('/api/auth/session', { idToken });
       if (!sessionRes.ok) {
         const detail = await sessionRes.json().catch(() => ({}));
+        console.error('Session start failed', { status: sessionRes.status, detail });
         throw new Error(detail?.error ?? 'Unable to start session.');
       }
       const sessionData = await sessionRes.json().catch(() => ({}));

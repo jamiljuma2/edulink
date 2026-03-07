@@ -15,6 +15,16 @@ function getFirebaseAdminConfig(): FirebaseAdminConfig {
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error('Missing Firebase admin environment variables.');
   }
+
+  const atIndex = clientEmail.indexOf('@');
+  const domainPart = atIndex >= 0 ? clientEmail.slice(atIndex + 1) : '';
+  const emailProjectId = domainPart.split('.iam.gserviceaccount.com')[0];
+  if (emailProjectId && emailProjectId !== projectId) {
+    throw new Error(
+      `Firebase admin config mismatch: FIREBASE_PROJECT_ID=${projectId} but service account email belongs to ${emailProjectId}.`
+    );
+  }
+
   return { projectId, clientEmail, privateKey };
 }
 

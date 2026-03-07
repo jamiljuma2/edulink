@@ -128,7 +128,6 @@ export default async function AdminDashboard({ searchParams }: { searchParams?: 
     ),
     query<{ count: string }>("select count(*) from transactions where type = 'payout'", []),
   ]);
-
   const users = usersRes.rows ?? [];
   const totalUsers = Number(usersCountRes.rows[0]?.count ?? users.length);
   const onlineUsers = Number(usersOnlineCountRes.rows[0]?.count ?? 0);

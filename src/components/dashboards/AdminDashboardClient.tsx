@@ -103,6 +103,10 @@ export default function AdminDashboardClient({
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [usersData, setUsersData] = useState<UserAccount[]>(users);
   const [presenceCounts, setPresenceCounts] = useState({ onlineUsers, offlineUsers });
+  const [showUsersPanel, setShowUsersPanel] = useState(false);
+  const [showSubmissionsPanel, setShowSubmissionsPanel] = useState(false);
+  const [showPaymentsPanel, setShowPaymentsPanel] = useState(false);
+  const [showWithdrawalsPanel, setShowWithdrawalsPanel] = useState(false);
 
   async function updateUserAccount(
     userId: string,
@@ -192,7 +196,7 @@ export default function AdminDashboardClient({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold">Registered Users</h2>
-              <p className="mt-2 text-sm text-[color:var(--muted)]">Monitor online status and take account actions.</p>
+              <p className="mt-2 text-sm text-[color:var(--muted)]">Toggle this section when needed so the rest of the dashboard stays visible.</p>
             </div>
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
@@ -201,205 +205,273 @@ export default function AdminDashboardClient({
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
                 <CircleDot className="h-3 w-3" /> Offline: {presenceCounts.offlineUsers}
               </span>
+              <button
+                className="btn-secondary"
+                onClick={() => setShowUsersPanel((prev) => !prev)}
+                aria-expanded={showUsersPanel}
+                aria-controls="admin-users-panel"
+              >
+                {showUsersPanel ? 'Hide Users' : 'Show Users'}
+              </button>
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
-            {usersData.map((user) => (
-              <div key={user.id} className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{user.display_name || 'Unnamed user'}</p>
-                    <p className="text-sm text-[color:var(--muted)]">{user.email}</p>
-                    <p className="mt-1 text-xs text-[color:var(--muted)]">
-                      Role: <span className="font-medium">{user.role}</span> | Approval: <span className="font-medium">{user.approval_status}</span>
-                    </p>
-                    <p className="text-xs text-[color:var(--muted)]">
-                      {user.is_online ? 'Online now' : `Offline - Last seen ${user.last_seen_at ? new Date(user.last_seen_at).toLocaleString() : 'never'}`}
-                    </p>
-                  </div>
+          {showUsersPanel ? (
+            <>
+              <div id="admin-users-panel" className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                {usersData.map((user) => (
+                  <div key={user.id} className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{user.display_name || 'Unnamed user'}</p>
+                        <p className="text-sm text-[color:var(--muted)]">{user.email}</p>
+                        <p className="mt-1 text-xs text-[color:var(--muted)]">
+                          Role: <span className="font-medium">{user.role}</span> | Approval: <span className="font-medium">{user.approval_status}</span>
+                        </p>
+                        <p className="text-xs text-[color:var(--muted)]">
+                          {user.is_online ? 'Online now' : `Offline - Last seen ${user.last_seen_at ? new Date(user.last_seen_at).toLocaleString() : 'never'}`}
+                        </p>
+                      </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {user.approval_status !== 'approved' && (
-                      <button className="btn-primary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'approve')} disabled={processingId === user.id}>
-                        {processingId === user.id ? 'Updating...' : 'Approve'}
-                      </button>
-                    )}
-                    {user.approval_status !== 'rejected' && (
-                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'disable')} disabled={processingId === user.id}>
-                        {processingId === user.id ? 'Updating...' : 'Disable'}
-                      </button>
-                    )}
-                    {user.approval_status !== 'pending' && (
-                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_pending')} disabled={processingId === user.id}>
-                        {processingId === user.id ? 'Updating...' : 'Set Pending'}
-                      </button>
-                    )}
-                    {user.role !== 'writer' && (
-                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'writer')} disabled={processingId === user.id}>
-                        {processingId === user.id ? 'Updating...' : 'Make Writer'}
-                      </button>
-                    )}
-                    {user.role !== 'student' && (
-                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'student')} disabled={processingId === user.id}>
-                        {processingId === user.id ? 'Updating...' : 'Make Student'}
-                      </button>
-                    )}
-                    {user.role !== 'admin' && (
-                      <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'admin')} disabled={processingId === user.id}>
-                        {processingId === user.id ? 'Updating...' : 'Make Admin'}
-                      </button>
-                    )}
+                      <div className="flex flex-wrap gap-2">
+                        {user.approval_status !== 'approved' && (
+                          <button className="btn-primary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'approve')} disabled={processingId === user.id}>
+                            {processingId === user.id ? 'Updating...' : 'Approve'}
+                          </button>
+                        )}
+                        {user.approval_status !== 'rejected' && (
+                          <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'disable')} disabled={processingId === user.id}>
+                            {processingId === user.id ? 'Updating...' : 'Disable'}
+                          </button>
+                        )}
+                        {user.approval_status !== 'pending' && (
+                          <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_pending')} disabled={processingId === user.id}>
+                            {processingId === user.id ? 'Updating...' : 'Set Pending'}
+                          </button>
+                        )}
+                        {user.role !== 'writer' && (
+                          <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'writer')} disabled={processingId === user.id}>
+                            {processingId === user.id ? 'Updating...' : 'Make Writer'}
+                          </button>
+                        )}
+                        {user.role !== 'student' && (
+                          <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'student')} disabled={processingId === user.id}>
+                            {processingId === user.id ? 'Updating...' : 'Make Student'}
+                          </button>
+                        )}
+                        {user.role !== 'admin' && (
+                          <button className="btn-secondary disabled:opacity-60" onClick={() => updateUserAccount(user.id, 'set_role', 'admin')} disabled={processingId === user.id}>
+                            {processingId === user.id ? 'Updating...' : 'Make Admin'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
+                {usersData.length === 0 && <p className="text-sm text-[color:var(--muted)]">No users found.</p>}
               </div>
-            ))}
-            {usersData.length === 0 && <p className="text-sm text-[color:var(--muted)]">No users found.</p>}
-          </div>
 
-          {totalUsers > pageSize && (
-            <div className="mt-4 flex justify-center">
-              {Array.from({ length: Math.ceil(totalUsers / pageSize) }, (_, i) => (
-                <a
-                  key={i}
-                  href={buildPageUrl('userPage', i + 1)}
-                  className={`mx-1 rounded px-3 py-1 ${userPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
-                >
-                  {i + 1}
-                </a>
-              ))}
-            </div>
+              {totalUsers > pageSize && (
+                <div className="mt-4 flex justify-center">
+                  {Array.from({ length: Math.ceil(totalUsers / pageSize) }, (_, i) => (
+                    <a
+                      key={i}
+                      href={buildPageUrl('userPage', i + 1)}
+                      className={`mx-1 rounded px-3 py-1 ${userPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                    >
+                      {i + 1}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="mt-4 text-sm text-[color:var(--muted)]">Users list is hidden. Click "Show Users" when you need to manage accounts.</p>
           )}
         </div>
 
         <div className="card">
-          <h2 className="text-xl font-semibold">Task Submissions</h2>
-          <p className="mt-2 text-sm text-[color:var(--muted)]">Review submissions and update status.</p>
-          <div className="mt-4 space-y-3">
-            {submissions.map((s) => (
-              <div key={s.id} className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{s.tasks?.assignments?.title ?? 'Assignment'}</p>
-                    <p className="text-sm text-[color:var(--muted)]">Status: {s.status}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="btn-secondary" onClick={() => setModal({ kind: 'submission', data: s })}>View</button>
-                    <button className="btn-primary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'approve')} disabled={processingId === s.id}>
-                      {processingId === s.id ? 'Processing...' : 'Approve'}
-                    </button>
-                    <button className="btn-secondary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'reject')} disabled={processingId === s.id}>
-                      {processingId === s.id ? 'Processing...' : 'Reject'}
-                    </button>
-                  </div>
-                </div>
-                <button
-                  className="mt-2 inline-block text-sm text-[color:var(--primary)] underline disabled:opacity-60"
-                  disabled={downloadingId === s.id}
-                  onClick={async () => {
-                    setDownloadingId(s.id);
-                    try {
-                      const { data } = await axios.post('/api/admin/submissions/signed-url', { storage_path: s.storage_path });
-                      if (data?.signedUrl) {
-                        window.open(data.signedUrl, '_blank', 'noopener');
-                      } else {
-                        alert('Failed to get download link.');
-                      }
-                    } catch {
-                      alert('Failed to get download link.');
-                    } finally {
-                      setDownloadingId(null);
-                    }
-                  }}
-                >
-                  {downloadingId === s.id ? 'Preparing...' : 'Download submission'}
-                </button>
-              </div>
-            ))}
-            {submissions.length === 0 && <p className="text-sm text-[color:var(--muted)]">No submissions yet.</p>}
-          </div>
-          {/* Pagination controls for submissions */}
-          {totalSubmissions > pageSize && (
-            <div className="flex justify-center mt-4">
-              {Array.from({ length: Math.ceil(totalSubmissions / pageSize) }, (_, i) => (
-                <a
-                  key={i}
-                  href={buildPageUrl('subPage', i + 1)}
-                  className={`mx-1 px-3 py-1 rounded ${subPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
-                >
-                  {i + 1}
-                </a>
-              ))}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Task Submissions</h2>
+              <p className="mt-2 text-sm text-[color:var(--muted)]">Review submissions and update status.</p>
             </div>
+            <button
+              className="btn-secondary"
+              onClick={() => setShowSubmissionsPanel((prev) => !prev)}
+              aria-expanded={showSubmissionsPanel}
+              aria-controls="admin-submissions-panel"
+            >
+              {showSubmissionsPanel ? 'Hide Submissions' : 'Show Submissions'}
+            </button>
+          </div>
+
+          {showSubmissionsPanel ? (
+            <>
+              <div id="admin-submissions-panel" className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                {submissions.map((s) => (
+                  <div key={s.id} className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{s.tasks?.assignments?.title ?? 'Assignment'}</p>
+                        <p className="text-sm text-[color:var(--muted)]">Status: {s.status}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="btn-secondary" onClick={() => setModal({ kind: 'submission', data: s })}>View</button>
+                        <button className="btn-primary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'approve')} disabled={processingId === s.id}>
+                          {processingId === s.id ? 'Processing...' : 'Approve'}
+                        </button>
+                        <button className="btn-secondary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'reject')} disabled={processingId === s.id}>
+                          {processingId === s.id ? 'Processing...' : 'Reject'}
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      className="mt-2 inline-block text-sm text-[color:var(--primary)] underline disabled:opacity-60"
+                      disabled={downloadingId === s.id}
+                      onClick={async () => {
+                        setDownloadingId(s.id);
+                        try {
+                          const { data } = await axios.post('/api/admin/submissions/signed-url', { storage_path: s.storage_path });
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank', 'noopener');
+                          } else {
+                            alert('Failed to get download link.');
+                          }
+                        } catch {
+                          alert('Failed to get download link.');
+                        } finally {
+                          setDownloadingId(null);
+                        }
+                      }}
+                    >
+                      {downloadingId === s.id ? 'Preparing...' : 'Download submission'}
+                    </button>
+                  </div>
+                ))}
+                {submissions.length === 0 && <p className="text-sm text-[color:var(--muted)]">No submissions yet.</p>}
+              </div>
+              {totalSubmissions > pageSize && (
+                <div className="flex justify-center mt-4">
+                  {Array.from({ length: Math.ceil(totalSubmissions / pageSize) }, (_, i) => (
+                    <a
+                      key={i}
+                      href={buildPageUrl('subPage', i + 1)}
+                      className={`mx-1 px-3 py-1 rounded ${subPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                    >
+                      {i + 1}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="mt-4 text-sm text-[color:var(--muted)]">Submissions list is hidden. Click "Show Submissions" when needed.</p>
           )}
         </div>
 
         <div className="card">
-          <h2 className="text-xl font-semibold">Payments</h2>
-          <p className="mt-2 text-sm text-[color:var(--muted)]">Track all incoming payments.</p>
-          <div className="mt-4 space-y-3">
-            {payments.map((p) => (
-              <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
-                <div>
-                  <p className="font-medium">{p.type.toUpperCase()} • {p.currency} {p.amount}</p>
-                  <p className="text-sm text-[color:var(--muted)]">Status: {p.status}</p>
-                </div>
-                <button className="btn-secondary" onClick={() => setModal({ kind: 'payment', data: p })}>View</button>
-              </div>
-            ))}
-            {payments.length === 0 && <p className="text-sm text-[color:var(--muted)]">No payments yet.</p>}
-          </div>
-          {/* Pagination controls for payments */}
-          {totalPayments > pageSize && (
-            <div className="flex justify-center mt-4">
-              {Array.from({ length: Math.ceil(totalPayments / pageSize) }, (_, i) => (
-                <a
-                  key={i}
-                  href={buildPageUrl('payPage', i + 1)}
-                  className={`mx-1 px-3 py-1 rounded ${payPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
-                >
-                  {i + 1}
-                </a>
-              ))}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Payments</h2>
+              <p className="mt-2 text-sm text-[color:var(--muted)]">Track all incoming payments.</p>
             </div>
+            <button
+              className="btn-secondary"
+              onClick={() => setShowPaymentsPanel((prev) => !prev)}
+              aria-expanded={showPaymentsPanel}
+              aria-controls="admin-payments-panel"
+            >
+              {showPaymentsPanel ? 'Hide Payments' : 'Show Payments'}
+            </button>
+          </div>
+
+          {showPaymentsPanel ? (
+            <>
+              <div id="admin-payments-panel" className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                {payments.map((p) => (
+                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+                    <div>
+                      <p className="font-medium">{p.type.toUpperCase()} • {p.currency} {p.amount}</p>
+                      <p className="text-sm text-[color:var(--muted)]">Status: {p.status}</p>
+                    </div>
+                    <button className="btn-secondary" onClick={() => setModal({ kind: 'payment', data: p })}>View</button>
+                  </div>
+                ))}
+                {payments.length === 0 && <p className="text-sm text-[color:var(--muted)]">No payments yet.</p>}
+              </div>
+              {totalPayments > pageSize && (
+                <div className="flex justify-center mt-4">
+                  {Array.from({ length: Math.ceil(totalPayments / pageSize) }, (_, i) => (
+                    <a
+                      key={i}
+                      href={buildPageUrl('payPage', i + 1)}
+                      className={`mx-1 px-3 py-1 rounded ${payPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                    >
+                      {i + 1}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="mt-4 text-sm text-[color:var(--muted)]">Payments list is hidden. Click "Show Payments" when needed.</p>
           )}
         </div>
 
         <div className="card">
-          <h2 className="text-xl font-semibold">Withdrawals</h2>
-          <p className="mt-2 text-sm text-[color:var(--muted)]">Approve writer payout requests.</p>
-          <div className="mt-4 space-y-3">
-            {withdrawals.map((w) => (
-              <div key={w.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
-                <div>
-                  <p className="font-medium">KES {w.amount}</p>
-                  <p className="text-sm text-[color:var(--muted)]">Status: {w.status}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button className="btn-secondary" onClick={() => setModal({ kind: 'payment', data: w })}>View</button>
-                  {w.status !== 'success' && (
-                    <button className="btn-primary disabled:opacity-60" onClick={() => approveWithdrawal(w.id)} disabled={processingId === w.id}>
-                      {processingId === w.id ? 'Approving...' : 'Approve'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            {withdrawals.length === 0 && <p className="text-sm text-[color:var(--muted)]">No withdrawal requests.</p>}
-          </div>
-          {/* Pagination controls for withdrawals */}
-          {totalWithdrawals > pageSize && (
-            <div className="flex justify-center mt-4">
-              {Array.from({ length: Math.ceil(totalWithdrawals / pageSize) }, (_, i) => (
-                <a
-                  key={i}
-                  href={buildPageUrl('withPage', i + 1)}
-                  className={`mx-1 px-3 py-1 rounded ${withPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
-                >
-                  {i + 1}
-                </a>
-              ))}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Withdrawals</h2>
+              <p className="mt-2 text-sm text-[color:var(--muted)]">Approve writer payout requests.</p>
             </div>
+            <button
+              className="btn-secondary"
+              onClick={() => setShowWithdrawalsPanel((prev) => !prev)}
+              aria-expanded={showWithdrawalsPanel}
+              aria-controls="admin-withdrawals-panel"
+            >
+              {showWithdrawalsPanel ? 'Hide Withdrawals' : 'Show Withdrawals'}
+            </button>
+          </div>
+
+          {showWithdrawalsPanel ? (
+            <>
+              <div id="admin-withdrawals-panel" className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                {withdrawals.map((w) => (
+                  <div key={w.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
+                    <div>
+                      <p className="font-medium">KES {w.amount}</p>
+                      <p className="text-sm text-[color:var(--muted)]">Status: {w.status}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="btn-secondary" onClick={() => setModal({ kind: 'payment', data: w })}>View</button>
+                      {w.status !== 'success' && (
+                        <button className="btn-primary disabled:opacity-60" onClick={() => approveWithdrawal(w.id)} disabled={processingId === w.id}>
+                          {processingId === w.id ? 'Approving...' : 'Approve'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {withdrawals.length === 0 && <p className="text-sm text-[color:var(--muted)]">No withdrawal requests.</p>}
+              </div>
+              {totalWithdrawals > pageSize && (
+                <div className="flex justify-center mt-4">
+                  {Array.from({ length: Math.ceil(totalWithdrawals / pageSize) }, (_, i) => (
+                    <a
+                      key={i}
+                      href={buildPageUrl('withPage', i + 1)}
+                      className={`mx-1 px-3 py-1 rounded ${withPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                    >
+                      {i + 1}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="mt-4 text-sm text-[color:var(--muted)]">Withdrawals list is hidden. Click "Show Withdrawals" when needed.</p>
           )}
         </div>
       </div>
