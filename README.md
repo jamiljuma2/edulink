@@ -58,6 +58,26 @@ npm run dev
 
 Visit `http://localhost:3000`.
 
+## Android App Packaging (TWA)
+
+This project includes Trusted Web Activity packaging helpers in `twa/`.
+
+1. Deploy your app over HTTPS.
+2. Build APK/AAB:
+
+```powershell
+./twa/build-twa.ps1 -ManifestUrl "https://your-domain.com/manifest.webmanifest" -ApplicationId "com.edulink.writers"
+```
+
+3. Configure Digital Asset Links env vars in production:
+
+```env
+TWA_PACKAGE_NAME=com.edulink.writers
+TWA_SHA256_CERT_FINGERPRINTS=12:34:...,AB:CD:...
+```
+
+The app exposes `/.well-known/assetlinks.json` using those values.
+
 ## Firebase Storage Rules
 Deploy storage rules after updating `firebase.storage.rules`:
 
