@@ -43,3 +43,7 @@ firebase-adminsdk*.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Trusted Web Activity generated artifacts
+/twa/android/
+*.keystore

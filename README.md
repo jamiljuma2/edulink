@@ -66,13 +66,13 @@ This project includes Trusted Web Activity packaging helpers in `twa/`.
 2. Build APK/AAB:
 
 ```powershell
-./twa/build-twa.ps1 -ManifestUrl "https://your-domain.com/manifest.webmanifest" -ApplicationId "com.edulink.writers"
+./twa/build-twa.ps1 -ManifestUrl "https://your-domain.com/manifest.webmanifest" -ApplicationId "com.edulinkwriters.twa"
 ```
 
 3. Configure Digital Asset Links env vars in production:
 
 ```env
-TWA_PACKAGE_NAME=com.edulink.writers
+TWA_PACKAGE_NAME=com.edulinkwriters.twa
 TWA_SHA256_CERT_FINGERPRINTS=12:34:...,AB:CD:...
 ```
 

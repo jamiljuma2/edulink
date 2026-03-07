@@ -2,7 +2,7 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$ManifestUrl,
 
-  [string]$ApplicationId = "com.edulink.writers",
+  [string]$ApplicationId = "com.edulinkwriters.twa",
   [string]$AppName = "EduLink Writers",
   [string]$LauncherName = "EduLink"
 )
@@ -10,6 +10,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $androidDir = Join-Path $PSScriptRoot "android"
+$twaManifestPath = Join-Path $androidDir "twa-manifest.json"
 
 Write-Host "Using manifest: $ManifestUrl"
 Write-Host "Application ID: $ApplicationId"
@@ -31,8 +32,12 @@ catch {
   throw "Failed to fetch manifest at '$ManifestUrl'. Ensure your latest PWA deployment is live and accessible. Details: $($_.Exception.Message)"
 }
 
-if (-not (Test-Path $androidDir)) {
+if (-not (Test-Path $androidDir) -or -not (Test-Path $twaManifestPath)) {
   Write-Host "Initializing Trusted Web Activity project..."
+  if (Test-Path $androidDir) {
+    Write-Host "Found incomplete TWA directory. Recreating..."
+    Remove-Item -Recurse -Force $androidDir
+  }
   npx @bubblewrap/cli init `
     --manifest $ManifestUrl `
     --directory $androidDir `

@@ -15,7 +15,7 @@ Use this folder to package EduLink as an Android app (APK/AAB) for Play Store di
 From repo root:
 
 ```powershell
-./twa/build-twa.ps1 -ManifestUrl "https://your-domain.com/manifest.webmanifest" -ApplicationId "com.edulink.writers"
+./twa/build-twa.ps1 -ManifestUrl "https://your-domain.com/manifest.webmanifest" -ApplicationId "com.edulinkwriters.twa"
 ```
 
 Outputs are generated under:
@@ -31,13 +31,13 @@ This project serves `/.well-known/assetlinks.json` from env vars.
 
 Set these environment variables on your production host:
 
-- `TWA_PACKAGE_NAME` = your Android package id (example: `com.edulink.writers`)
+- `TWA_PACKAGE_NAME` = your Android package id (example: `com.edulinkwriters.twa`)
 - `TWA_SHA256_CERT_FINGERPRINTS` = comma-separated signing cert fingerprints
 
 Example:
 
 ```env
-TWA_PACKAGE_NAME=com.edulink.writers
+TWA_PACKAGE_NAME=com.edulinkwriters.twa
 TWA_SHA256_CERT_FINGERPRINTS=12:34:...,AB:CD:...
 ```
 
