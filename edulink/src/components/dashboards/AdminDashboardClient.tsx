@@ -353,10 +353,10 @@ export default function AdminDashboardClient({
         </div>
 
         <div className="card">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center justify-between border-b pb-2 mb-4">
             <div>
               <h2 className="text-xl font-semibold">Task Submissions</h2>
-              <p className="mt-2 text-sm text-[color:var(--muted)]">Review submissions and update status.</p>
+              <p className="mt-1 text-xs text-[color:var(--muted)]">Review and manage assignment submissions below.</p>
             </div>
             <button
               className="btn-secondary"
@@ -370,45 +370,49 @@ export default function AdminDashboardClient({
 
           {showSubmissionsPanel ? (
             <>
-              <div id="admin-submissions-panel" className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+              <div id="admin-submissions-panel" className="mt-2 max-h-[420px] space-y-4 overflow-y-auto pr-1">
                 {submissions.map((s) => (
-                  <div key={s.id} className="rounded-2xl border border-[color:var(--border)] bg-white/70 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{s.tasks?.assignments?.title ?? 'Assignment'}</p>
-                        <p className="text-sm text-[color:var(--muted)]">Status: {s.status}</p>
+                  <div
+                    key={s.id}
+                    className="rounded-xl border border-[color:var(--border)] bg-gradient-to-br from-white via-emerald-50 to-white p-5 shadow-sm transition hover:bg-emerald-50/60"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-3 mb-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-lg truncate">{s.tasks?.assignments?.title ?? 'Assignment'}</p>
+                        <p className="text-xs text-[color:var(--muted)] mt-1">Submitted: {new Date(s.created_at).toLocaleString()}</p>
                       </div>
-                      <div className="flex gap-2">
-                        <button className="btn-secondary" onClick={() => setModal({ kind: 'submission', data: s })}>View</button>
-                        <button className="btn-primary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'approve')} disabled={processingId === s.id}>
-                          {processingId === s.id ? 'Processing...' : 'Approve'}
-                        </button>
-                        <button className="btn-secondary disabled:opacity-60" onClick={() => setModal({ kind: 'reject', data: s })} disabled={processingId === s.id}>
-                          {processingId === s.id ? 'Processing...' : 'Reject'}
-                        </button>
-                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${s.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : s.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{s.status.charAt(0).toUpperCase() + s.status.slice(1)}</span>
                     </div>
-                    <button
-                      className="mt-2 inline-block text-sm text-[color:var(--primary)] underline disabled:opacity-60"
-                      disabled={downloadingId === s.id}
-                      onClick={async () => {
-                        setDownloadingId(s.id);
-                        try {
-                          const { data } = await axios.post('/api/admin/submissions/signed-url', { storage_path: s.storage_path });
-                          if (data?.signedUrl) {
-                            window.open(data.signedUrl, '_blank', 'noopener');
-                          } else {
+                    <div className="flex flex-wrap items-center gap-3 justify-end">
+                      <button className="btn-secondary" onClick={() => setModal({ kind: 'submission', data: s })}>View</button>
+                      <button className="btn-primary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'approve')} disabled={processingId === s.id}>
+                        {processingId === s.id ? 'Processing...' : 'Approve'}
+                      </button>
+                      <button className="btn-secondary disabled:opacity-60" onClick={() => setModal({ kind: 'reject', data: s })} disabled={processingId === s.id}>
+                        {processingId === s.id ? 'Processing...' : 'Reject'}
+                      </button>
+                      <button
+                        className="btn-link text-[color:var(--primary)] underline disabled:opacity-60"
+                        disabled={downloadingId === s.id}
+                        onClick={async () => {
+                          setDownloadingId(s.id);
+                          try {
+                            const { data } = await axios.post('/api/admin/submissions/signed-url', { storage_path: s.storage_path });
+                            if (data?.signedUrl) {
+                              window.open(data.signedUrl, '_blank', 'noopener');
+                            } else {
+                              alert('Failed to get download link.');
+                            }
+                          } catch {
                             alert('Failed to get download link.');
+                          } finally {
+                            setDownloadingId(null);
                           }
-                        } catch {
-                          alert('Failed to get download link.');
-                        } finally {
-                          setDownloadingId(null);
-                        }
-                      }}
-                    >
-                      {downloadingId === s.id ? 'Preparing...' : 'Download submission'}
-                    </button>
+                        }}
+                      >
+                        {downloadingId === s.id ? 'Preparing...' : 'Download'}
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {submissions.length === 0 && <p className="text-sm text-[color:var(--muted)]">No submissions yet.</p>}
@@ -419,7 +423,7 @@ export default function AdminDashboardClient({
                     <a
                       key={i}
                       href={buildPageUrl('subPage', i + 1)}
-                      className={`mx-1 px-3 py-1 rounded ${subPage === i + 1 ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+                      className={`mx-1 px-3 py-1 rounded border transition ${subPage === i + 1 ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}
                     >
                       {i + 1}
                     </a>
