@@ -698,9 +698,14 @@ export default function WriterDashboardClient(props: WriterDashboardClientProps)
                   </button>
                 )}
                 {latestSubmission?.status === 'rejected' && (
-                  <div className="mt-3 rounded-xl border border-rose-200/70 bg-rose-50/70 p-3 text-sm text-rose-800">
-                    <p className="font-semibold">Submission rejected.</p>
-                    <p className="text-xs text-rose-700/80">{latestSubmission?.notes || 'No admin notes provided.'}</p>
+                  <div className="mt-3 rounded-xl border border-rose-200/70 bg-rose-50/90 p-4 flex items-start gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-200 text-rose-700">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>
+                    </span>
+                    <div>
+                      <p className="font-semibold text-base text-rose-800 mb-1">Submission rejected by admin</p>
+                      <p className="text-sm text-rose-700/90 whitespace-pre-line">{latestSubmission?.notes || 'No admin notes provided.'}</p>
+                    </div>
                   </div>
                 )}
                 {t.status === 'submitted' && (

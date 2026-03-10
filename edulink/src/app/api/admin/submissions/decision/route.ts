@@ -12,6 +12,10 @@ export async function POST(req: Request) {
   if (decision !== 'approve' && decision !== 'reject') {
     return NextResponse.json({ error: 'Invalid decision' }, { status: 400 });
   }
+  // Require a note for rejection
+  if (decision === 'reject' && (!notes || typeof notes !== 'string' || notes.trim().length === 0)) {
+    return NextResponse.json({ error: 'A note is required for rejection.' }, { status: 400 });
+  }
   const user = await getServerFirebaseUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
