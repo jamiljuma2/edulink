@@ -40,7 +40,8 @@ type Withdrawal = Payment;
 type ModalState =
   | { kind: 'none' }
   | { kind: 'submission'; data: Submission }
-  | { kind: 'payment'; data: Payment };
+  | { kind: 'payment'; data: Payment }
+  | { kind: 'reject'; data: Submission };
 
 function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
   if (!open) return null;
@@ -144,12 +145,30 @@ export default function AdminDashboardClient({
     }
   }
 
-  async function decideSubmission(submissionId: string, decision: 'approve' | 'reject') {
+  const [rejectionNote, setRejectionNote] = useState("");
+  const [rejectionError, setRejectionError] = useState("");
+
+  async function decideSubmission(submissionId: string, decision: 'approve' | 'reject', notes?: string) {
     setProcessingId(submissionId);
-    await axios.post('/api/admin/submissions/decision', { submissionId, decision });
+    await axios.post('/api/admin/submissions/decision', { submissionId, decision, notes });
     setMessage(`Submission ${decision}d.`);
     setProcessingId(null);
+    setRejectionNote("");
+    setRejectionError("");
     // Optionally: reload page or refetch data
+  }
+
+  function handleRejectSubmit() {
+    if (!rejectionNote.trim()) {
+      setRejectionError("Please provide a reason for rejection.");
+      return;
+    }
+    if (modal.kind === 'reject') {
+      decideSubmission(modal.data.id, 'reject', rejectionNote);
+      setModal({ kind: 'none' });
+      setRejectionNote("");
+      setRejectionError("");
+    }
   }
 
   async function approveWithdrawal(transactionId: string) {
@@ -364,7 +383,7 @@ export default function AdminDashboardClient({
                         <button className="btn-primary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'approve')} disabled={processingId === s.id}>
                           {processingId === s.id ? 'Processing...' : 'Approve'}
                         </button>
-                        <button className="btn-secondary disabled:opacity-60" onClick={() => decideSubmission(s.id, 'reject')} disabled={processingId === s.id}>
+                        <button className="btn-secondary disabled:opacity-60" onClick={() => setModal({ kind: 'reject', data: s })} disabled={processingId === s.id}>
                           {processingId === s.id ? 'Processing...' : 'Reject'}
                         </button>
                       </div>
@@ -533,6 +552,22 @@ export default function AdminDashboardClient({
       }
       onClose={() => setModal({ kind: 'none' })}
     >
+      {modal.kind === 'reject' && (
+        <Modal open={true} title="Reject Submission" onClose={() => { setModal({ kind: 'none' }); setRejectionNote(""); setRejectionError(""); }}>
+          <div>
+            <label className="block mb-2 font-medium">Reason for rejection:</label>
+            <textarea
+              className="w-full border rounded p-2 mb-2"
+              rows={4}
+              value={rejectionNote}
+              onChange={e => setRejectionNote(e.target.value)}
+              required
+            />
+            {rejectionError && <p className="text-red-600 text-sm mb-2">{rejectionError}</p>}
+            <button className="btn-primary mt-2" onClick={handleRejectSubmit}>Submit</button>
+          </div>
+        </Modal>
+      )}
       {modal.kind === 'submission' && (
         <div className="space-y-2">
           <div><span className="font-semibold">Assignment:</span> {modal.data.tasks?.assignments?.title ?? 'Assignment'}</div>
