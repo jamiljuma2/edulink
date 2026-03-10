@@ -45,11 +45,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Assignment not found or not submitted/completed' }, { status: 404 });
     }
 
-    // Fetch the latest approved/submitted task_submission for this assignment
+    // Fetch the latest approved task_submission for this assignment
     const { rows: submissionRows } = await query(
       `select ts.storage_path from task_submissions ts
         join tasks t on ts.task_id = t.id
-        where t.assignment_id = $1 and ts.status in ('approved', 'submitted')
+        where t.assignment_id = $1 and ts.status = 'approved'
         order by ts.created_at desc limit 1`,
       [assignmentId]
     );
